@@ -1,0 +1,72 @@
+{
+  "artifact_meta": {
+    "name": "universal_extraction_sheet",
+    "schema_version": "extract.v1.2",
+    "compat": {"min": "1.1", "max": "1.x"},
+    "created": "2025-10-12T00:00:00Z",
+    "notes": "General-purpose extractor for any kernel: behaviour + governance + diagnostics + infra-observability (live retrieval enabled)."
+  },
+  "behavioural_parameters": {
+    "core_task_and_context_parameters": {
+      "developer_prompt_summary": null,
+      "init_context_injection": {"named_entities": [], "docs": []},
+      "task_definition_schema": {"type": "object", "properties": {}},
+      "goal_state": {"description": null, "output_format": null},
+      "temporal_context": {"now": null, "timezone": null},
+      "real_time_data_stream": {"enabled": true, "sources": ["t_web"]}
+    },
+    "persona_and_style_parameters": {
+      "role_assignment": null,
+      "response_style_guidelines": {"tone": null, "formality": null, "vocabulary": null},
+      "persona_sub_attributes": {"tics": [], "scales": {}},
+      "level_of_detail": {"mode": "brief|normal|comprehensive"},
+      "discourse_style": "plain|socratic|bulletized|narrative"
+    },
+    "operational_and_safety_parameters": {
+      "content_filters_config": {"enabled": true, "notes": null},
+      "disallowed_actions": [],
+      "denied_topic_taxonomy": [],
+      "jailbreak_detection_heuristics": [],
+      "disclaimer_requirements": {"when": [], "text": null},
+      "sandbox_escape_policies": {"rules": []}
+    },
+    "knowledge_memory_and_retrieval_parameters": {
+      "memory_snapshot": {"strategy": "none", "window": 0},
+      "knowledge_bases": [],
+      "retrieval_context": {"documents": [], "selectors": []},
+      "freshness_constraint": {"recency_days": 365},
+      "knowledge_base_priority": [],
+      "memory_aging_policy": {"half_life_turns": null},
+      "context_window_limits": {"tokens_max": 4000}
+    },
+    "api_and_tool_integration_parameters": {
+      "API_tools_verbatim": [{"id": "t_web", "in_schema": {"query": "string"}, "out_schema": {"results": [{"title": "string", "url": "string", "snippet": "string"}]}}],
+      "tool_usage_weights": {"t_web": 1.0},
+      "tool_execution_policy_strict_validation": {"enabled": true},
+      "tool_execution_policy_permissive_fallback": {"enabled": false},
+      "tool_execution_policy_expedited": {"enabled": false},
+      "retry_logic_fixed_delay": {"retries": 0, "delay_ms": 0},
+      "retry_logic_exponential_backoff": {"retries": 0, "base_ms": 0},
+      "retry_logic_contextual_retry": {"enabled": false},
+      "tool_selection_cost_based": {"enabled": false},
+      "tool_selection_latency_based": {"enabled": false},
+      "tool_selection_hybrid": {"enabled": true},
+      "tool_output_post_processing": {"format_rules": []},
+      "multi_tool_coordination": {"merge_strategy": "first_success|consensus|priority"}
+    },
+    "cognitive_and_reasoning_parameters": {
+      "reasoning_visibility": "hidden",
+      "reasoning_strategies": {"chain_of_thought": false, "tree_of_thoughts": false, "self_correction": true, "hypothesis_generation": true},
+      "problem_decomposition": {"mode": "hierarchical|sequential|parallel"},
+      "uncertainty_handling": {"confidence_scores": true, "clarify_first": true, "no_guessing": true},
+      "decision_thresholds": {"answer_confidence_min": 0.85},
+      "self_correction_policy": {"passes_max": 1},
+      "deliberation_depth_limits": {"depth_max": null}
+    },
+    "ethical_and_legal_parameters": {
+      "privacy_policy": {"pii_masking": true, "gdpr": true},
+      "source_attribution_policy": {"required": false, "style": null},
+      "compliance_audit_log_fields": []
+    }
+  }
+}

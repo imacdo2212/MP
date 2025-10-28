@@ -1,0 +1,76 @@
+Identifier,Name,Category,Library,Purpose,Code
+Sec_Rot_Bruce,Prime Directive,Sec,Core,Every run must end in BOUNDED_OUTPUT or REFUSAL,"type Termination = { kind: ""BOUNDED_OUTPUT""; payload: unknown; audit: Audit } | { kind:""REFUSAL""; mode:string; code:string; cause:string; audit:Audit };"
+Sec_Mas_Tank,Refusal Taxonomy,Sec,Core,Standard refusal codes,"const REFUSAL_CODES = [""ENTROPY_CLARITY"",""CONFLICT_PST"",""DIS_INSUFFICIENT"",""FRAGILITY"",""RFC_DRIFT"",""CERT_A1_FAIL"",""CERT_A2_FAIL"",""CERT_A3_FAIL"",""CERT_B1_FAIL"",""CERT_B2_FAIL"",""CERT_B3_FAIL"",""CERT_B4_FAIL"",""BOUND_TIME"",""BOUND_MEM"",""BOUND_GAS"",""BOUND_DEPTH"",""BOUND_DATA"",""ILLEGAL_REQUEST"",""SAFETY_POLICY""];"
+Sec_Dobe_Astro,Budget,Sec,Core,Execution budgets,type Budget = { time_ms:number; mem_mb:number; gas:number; depth:number };
+Sec_Newf_Storm,Clarity Gate,Sec,Core,Compute clarity E and enforce threshold,function clarityScore(facts:number):number { return -1.0 + 0.5*facts; }
+Herd_Col_Mint,Deterministic Router,Herd,Core,Route intents deterministically,"function route(intent:string):string { if (intent===""Research"") return ""Cr1""; return ""ORCH""; }"
+Util_Pood_Candy,Cache Discipline,Util,Core,Cache with idempotency,"const cache=new Map<string,any>();"
+Sec_Rot_Bruno,Audit Emission,Sec,Core,Emit audit fields,"type Audit={exec_id:string; route:string; budgets:Budget; consumed:Partial<Budget>; termination?:string; metrics:Record<string,any>};"
+Herd_Col_June,Meta-Router Contract,Herd,Core,Canonical request/response envelopes,"{""request"": {""input"":{},""policy"":{},""budget"":{}}, ""response"": {""output"":{},""refusal"":{}}}"
+Herd_Col_Daisy,Multi-Metric Gating,Herd,Core,Traffic-light gating,"function gate(metrics:number[]):string { const m=metrics.reduce((a,b)=>a+b,0)/metrics.length; if(m>=0.85) return ""Green""; if(m>=0.70) return ""Yellow""; throw ""Red""; }"
+Sec_Box_Rocky,Refusal-as-Lesson,Sec,Core,Refusal gives next-step advice,"function refusalAsLesson(r:any){ return {...r,next_steps:[""Revise input"",""Clarify intent""]}; }"
+Terr_Bull_Rosie,Consent Gate,Terr,Core,Require explicit consent,"function requireConsent(text:string){ if(!/I consent/i.test(text)) throw ""No consent""; }"
+Sec_Newf_Bear,Append-Only Ledger,Sec,Core,Tamper-evident session log,const ledger: string[] = []; function append(e:string){ ledger.push(e); }
+Sec_Dobe_Sable,Non-Disclosure Veil,Sec,Core,Cryptographic veil,"function veilUnlock(seed:string,reply:string){ const expected=seed.split('').reverse().join(''); if(reply!==expected) throw ""Veil locked""; }"
+Comp_Pom_Lulu,Persona Overlay,Comp,Core,Optional personality overlay,"function withPersona(out:any, persona?:string){ return persona? {out,persona}: {out}; }"
+Work_Bea_Honey,Progression Kernel,Work,Core,Progression by XP,"function progress(xp:number){ if(xp<100) return ""Learner""; if(xp<500) return ""Adept""; return ""Expert""; }"
+Work_Bea_Max,Retry/Backoff,Work,Core,Deterministic retry with backoff,"function retry(f:()=>any, n=3){ for(let i=0;i<n;i++){ try{return f();}catch{}} throw ""Fail""; }"
+Herd_Col_Jasper,Source Hierarchy,Herd,Core,Resolve conflicts by tier,"function resolve(claims:{tier:number;claim:string}[]){ claims.sort((a,b)=>a.tier-b.tier); return claims[0].claim; }"
+Sec_Mas_Iron,Confidence Threshold,Sec,Core,Reject if score below threshold,"function enforce(score:number,min=0.98){ if(score<min) throw ""Low confidence""; }"
+Sec_Bern_Heidi,Self-Audit,Sec,Core,Check before emitting output,"function preAudit(c:any){ if(!c.valid) throw ""Invalid""; }"
+Herd_Col_Flora,Feedback Loop,Herd,Core,Capture issues for refinement,const feedback: any[]=[]; function record(issue:string){ feedback.push(issue); }
+Util_Pood_Nova,Compliance Binding,Util,Core,Validate against frameworks,"function compliance(doc:any){ return {GDPR:true,ISO:true}; }"
+Sec_Dobe_Ares,Escalation Protocol,Sec,Core,Structured escalation,"function escalate(issue:string){ return {level:""high"",issue}; }"
+Hunt_Lab_Scout,KB Curation,Hunt,Core,Filter by trust/freshness,function curate(src:{trust:number;age:number}){ return src.trust>0.7 && src.age<365; }
+Work_Fox_Rusty,Simulation Validation,Work,Core,Pre-deployment simulation,"function simulate(model:(x:number)=>number, start:number,steps:number){ let s=start; for(let i=0;i<steps;i++){ s=model(s); } return s; }"
+Terr_JRT_Buddy,Schema Validation,Terr,Core,Validate/coerce input,"function validateInput(input:any,schema:any){ if(!schema(input)) throw ""Bad input""; return input; }"
+Herd_Col_Lucy,Intent Disambiguation,Herd,Core,Resolve ambiguous intents,"function disambiguate(stated:string,text:string){ return text.includes(stated)?stated:""Inferred""; }"
+Util_Dal_Scout,Output Schema Enforcer,Util,Core,Enforce output schema,"function enforceOutput(out:any,schema:any){ if(!schema(out)) throw ""Bad output""; return out; }"
+Sec_Rot_Athena,Hallucination Guard,Sec,Core,Check structure matches claims,"function checkStructure(output:any,claimCount:number){ if(output.length!==claimCount) throw ""Mismatch""; }"
+Herd_Col_Hazel,Fallback Strategy,Herd,Core,Main then fallback,"function withFallback(main:()=>any,fallback:()=>any){ try{return main();}catch{return fallback();} }"
+Work_Whip_Jack,Parallel Execution,Work,Core,Run tasks in parallel,async function parallel(ts:(()=>any)[]){ return Promise.all(ts.map(t=>t())); }
+Herd_Col_Tilly,Context Accumulator,Herd,Core,Extend context immutably,"function extend(ctx:any,k:string,v:any){ return {...ctx,[k]:v}; }"
+Herd_Col_Rex,Ephemeral State,Herd,Core,Manage transient state,"const eph=new Map<string,any>();"
+Sec_Rot_Zeus,Telemetry Wrapper,Sec,Core,Wrap primitive with timing metrics,function telemetry(fn:any){ const t0=Date.now(); try{const r=fn(); console.log(Date.now()-t0); return r;}catch(e){throw e;} }
+Sec_Bern_Koda,Dynamic Config,Sec,Core,Fetch runtime configs,async function getConfig(){ return {threshold:0.75}; }
+Terr_Norf_Archie,Precedent Analyzer,Terr,Core,Rank precedents,"type Precedent={id:string;facts:string[];outcome:string}; function analyze(facts:string[],corpus:Precedent[]){ return corpus.map(p=>({p,score:jaccard(facts,p.facts)})).sort((a,b)=>b.score-a.score); }"
+Util_Schn_Murphy,Z-Test,Util,Core,Statistical significance check,"function zTest(mean:number,mu0:number,sd:number,n:number){ const se=sd/Math.sqrt(n); const z=(mean-mu0)/se; return {z}; }"
+Sec_Rot_Fang,Risk Classifier,Sec,Core,Bucket into risk tiers,"function classify(score:number){ if(score<0.25)return""Low""; if(score<0.5)return""Medium""; if(score<0.75)return""High""; return""Critical""; }"
+Work_Bea_Sam,Scenario Simulator,Work,Core,What-if analysis,"function simulateScenarios<T>(base:T,variants:Partial<T>[]):T[]{ return variants.map(v=>({...base,...v})); }"
+Hunt_Gold_Ollie,Drafting,Hunt,Core,Fill templates with data,"function draft(tpl:string,data:Record<string,string>){ return tpl.replace(/{{(\w+)}}/g,(_,k)=>data[k]||""""); }"
+Util_Pood_Greta,Calculator,Util,Core,Deterministic math eval,"function calc(expr:string){ if(!/^[0-9+\-*/ ().]+$/.test(expr)) throw ""Unsafe""; return Function(`return (${expr})`)(); }"
+Herd_Col_Monty,Approval Workflow,Herd,Core,Initiate approvals,"function initApproval(roles:string[]){ return roles.map(r=>({role:r,approved:false})); }"
+Sec_Mas_Duke,Fairness Check,Sec,Core,Reject unfair ratios,"function checkFairness(ratio:number){ if(ratio<0.8) throw ""Unfair""; }"
+Herd_Col_June,Dual Verification,Herd,Core,Compare two results,"function dual<T>(a:()=>T,b:()=>T,eq:(x:T,y:T)=>boolean){ const r1=a(),r2=b(); if(!eq(r1,r2)) throw ""Mismatch""; return r1; }"
+Sec_Mas_Hades,Escalation Manager,Sec,Core,Step escalation level,"function escalateStep(state:{level:number},reason:string){ return {level:state.level+1,reason}; }"
+Sec_Bern_Astra,Extended Telemetry,Sec,Core,Metrics capture by name,"function wrap(fn:any,name:string){ const t0=Date.now(); try{const r=fn(); console.log(name,Date.now()-t0); return r;}catch(e){throw e;} }"
+Work_Bea_Luna,Adaptive Budget,Work,Core,Adjust budgets by latency,"function adapt(prev:Budget,latency:number){ return {...prev,time_ms:Math.max(50,Math.min(60000,latency*1.2))}; }"
+Sec_Bern_Juno,Orchestrator,Sec,Core,Run DAG of kernels,"type Node={id:string,deps:string[],fn:()=>any}; function run(nodes:Node[]){const results:Record<string,any>={};for(const n of nodes){results[n.id]=n.fn();}return results;}"
+Util_Dal_Scout,APA Inline Citation,Util,Core,APA reference formatter,"function APA(x:{author:string,year?:number,url:string}){ return `[(${x.author}${x.year?`, ${x.year}`:""""})](${x.url})`; }"
+Util_Schn_Oscar,MLA Inline Citation,Util,Core,MLA reference formatter,"function MLA(x:{author:string,title?:string,url:string}){ const core=x.title? `${x.author}, *${x.title}*` : x.author; return `[(${core})](${x.url})`; }"
+Util_Fren_Bruce,Chicago Citation,Util,Core,Chicago reference formatter,"function Chicago(x:{author:string,title:string,pub?:string,year?:number,url:string}){ const pub=x.pub? ` (${x.pub}${x.year?`, ${x.year}`:""""})` : (x.year?` (${x.year})`:""""); return `[${x.author}, *${x.title}*${pub}.](${x.url})`; }"
+Util_Bulldog_Hugo,Harvard Citation,Util,Core,Harvard reference formatter,"function Harvard(x:{author:string,year?:number,url:string}){ return `[(${x.author}${x.year?` ${x.year}`:""""})](${x.url})`; }"
+Util_Pood_Greta,IEEE Citation,Util,Core,IEEE reference formatter,"function IEEE(x:{index:number,url:string}){ return `[${x.index}](${x.url})`; }"
+Util_Schn_Tess,PubMed Link Hygiene,Util,Core,Filter PubMed links,function keepPubMed(urls:string[]){ return urls.filter(u=>/^https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\//.test(u)); }
+Util_Dal_Ruby,Arxiv Link Hygiene,Util,Core,Filter Arxiv links,function keepArxiv(urls:string[]){ return urls.filter(u=>/^https:\/\/arxiv\.org\/(abs|pdf)\//.test(u)); }
+Util_Pood_Lola,Gov Link Hygiene,Util,Core,Filter Gov links,function keepGov(urls:string[]){ return urls.filter(u=>/^https:\/\/(?:[\w-]+\.)*gov\//.test(u)); }
+Util_Bulldog_Bertie,DOI Link Hygiene,Util,Core,Filter DOI links,function keepDOI(urls:string[]){ return urls.filter(u=>/^https:\/\/doi\.org\//.test(u)); }
+Util_Pood_Nova,Legal Summary Generator,Util,Applied,Generate IRAC legal summaries,"type IRAC={issues:string[];rules:string[];analysis:string;conclusion:string}; function legalIRAC(text:string):IRAC{ return {issues:[],rules:[],analysis:"""",conclusion:""""}; }"
+Util_Schn_Murphy,Financial Summary Generator,Util,Applied,Generate KPI financial summaries,"type KPI={revenue?:string;margin?:string;guidance?:string}; function financialKPI(text:string):{kpi:KPI,notes?:string}{ return {kpi:{}}; }"
+Util_Dal_Willow,Medical Summary Generator,Util,Applied,Generate PICO medical summaries,"type PICO={population:string;intervention:string;comparison?:string;outcome:string}; function medicalPICO(text:string):{pico:PICO}{ return {pico:{population:"""",intervention:"""",outcome:""""}}; }"
+Terr_Bull_Cleo,Birth Data Collector,Terr,Applied,"Collect birth data, strict validation","function collectBirth(x:{date?:string,time?:string,location?:string}){ if(!x.date||!x.time||!x.location) throw REFUSAL(""DIS_INSUFFICIENT""); return {date:x.date,time:x.time,location:x.location}; }"
+Sec_Rot_Rhea,Birth Chart Scope Guard,Sec,Applied,Reject unsafe astrology queries,"function birthScope(query:string){ if(/synastry|transit|composite/i.test(query)) return REFUSAL(""SAFETY_POLICY""); }"
+Herd_Col_Flora,Chart Summary Generator,Herd,Applied,Generate astrology chart summaries,"function chartSummary(chart:any){ return {placements:[],summary:""""}; }"
+Util_Pood_Jade,Chart Link Recommender,Util,Applied,Recommend chart calculator links,"function chartLink(topic:""birth""|""synastry""|""transit""){ if(topic===""birth"") return ""https://authorityastrology.com/calculators/birth-chart""; if(topic===""synastry"") return ""https://authorityastrology.com/calculators/synastry-chart""; if(topic===""transit"") return ""https://authorityastrology.com/calculators/transit-chart""; return ""https://authorityastrology.com""; }"
+Comp_ToyP_Pixie,Code Copilot Persona,Comp,Applied,Plan+code assistant persona,"type PlanCode={plan:string,code:string}; function codeCopilot(prompt:string,language?:string):PlanCode{ return {plan:"""",code:""""}; }"
+Comp_Chih_Nala,Rubber Duck Debugger,Comp,Applied,Debugging persona,"function duckDebug(code:string){ return ""Ask probing questions""; }"
+Comp_Cav_Finn,Quick Fixer,Comp,Applied,Fast code patching persona,"function quickFix(code:string,issue:string){ return ""patched code""; }"
+Comp_ToyP_Echo,Code Explainer,Comp,Applied,Explain code step-by-step,"function explainCode(code:string){ return ""step-by-step explanation""; }"
+Comp_Bichon_Theo,Code Reviewer,Comp,Applied,Review code for issues,"function reviewCode(code:string){ return {issues:[],suggestions:[]}; }"
+Util_Dal_Flare,Code Search Helper,Util,Applied,Search codebases,function searchCodebase(query:string){ return []; }
+Util_Pood_Misty,Code Reader,Util,Applied,Read code from URL,"function readCode(url:string){ return ""file contents""; }"
+Comp_Pug_Gigi,Command Set,Comp,Applied,Registered commands,"const commands=[""/start"",""/help"",""/fix"",""/quick_fix"",""/explain"",""/review"",""/search"",""/read""];"
+Comp_Cav_Penny,Canva Persona,Comp,Applied,Design assistant persona,"function canvaPersona(prompt:string){ return {design_type:"""",enhancedPrompt:prompt}; }"
+Comp_Pom_Mocha,Canva Result Formatter,Comp,Applied,Format Canva results,"function formatResults(results:any[]){ return results.map((r,i)=>`Option ${i+1}: ${r.url}`); }"
+Comp_ToyP_Ivy,Canva Guidance Rules,Comp,Applied,Canva editing guidance,"function canvaGuidance(prompt:string){ return ""Would you like tips on how to edit this in Canva?""; }"
+Comp_Chih_Leo,Canva Scope Guard,Comp,Applied,Restrict to Canva tasks,"function canvaScope(task:string){ if(!/canva/i.test(task)) throw ""Out of scope""; }"

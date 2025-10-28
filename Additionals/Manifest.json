@@ -1,0 +1,112 @@
+{
+  "name": "MP/OS — Apex Orchestrated Stack",
+  "version": "1.1.0",
+  "generated": "2025-10-22T00:00:00Z",
+  "description": "Unified manifest with explicit route budget clamps and plane-specific profiles for Apex routing.",
+
+  "imports": [
+    "MPC@1.x",
+    "Apex@merged",
+    "MPX@1.x",
+    "AOK@1.0",
+    "PSU@0.2",
+    "PHU@1.0",
+    "MHU@2.5",
+    "BHU@1.0",
+    "MPT@1.0",
+    "Rumpole@2.0",
+    "DoctorMartin@1.1",
+    "DfE@1.1",
+    "MPS@1.2"
+  ],
+
+  "config": {
+    "budgets_defaults": {
+      "tokens_prompt_max": 4000,
+      "tokens_output_max": 1200,
+      "time_ms": 60000,
+      "mem_mb": 512,
+      "depth_max": 6,
+      "clarifying_questions_max": 3,
+      "tools_max": 4,
+      "tool_calls_max": 12,
+      "web_requests_max": 8,
+      "code_exec_ms_max": 15000,
+      "citations_required": false,
+      "cot_visibility": "hidden"
+    },
+    "budget_policy": {
+      "caller_narrows": true,
+      "route_profile_clamp": "min",
+      "on_overflow": "emit_bounded_result_with_summary_questions"
+    },
+    "accuracy_guards": {
+      "bounded_outputs_only": true,
+      "no_invention_beyond_inputs": true,
+      "hierarchy": "P>S>T",
+      "escalation_rule": "escalate_to_Q1_on_epiphenomena"
+    },
+    "refusal_aliases": {
+      "TOOL_TIMEOUT": "BOUND_TIME",
+      "TOOL_FAIL": "FRAGILITY",
+      "TOOL_UNSAFE": "SAFETY_POLICY",
+      "TOOL_SCHEMA_MISS": "DIS_INSUFFICIENT",
+      "TOOL_DRIFT": "CONFLICT_PST",
+      "BOUND_BUDGET": "BOUND_*",
+      "BOUND_DEPTH": "BOUND_DEPTH",
+      "ENTROPY_CLARITY": "ENTROPY_CLARITY",
+      "FRAGILITY": "FRAGILITY",
+      "SAFETY_POLICY": "SAFETY_POLICY",
+      "DIS_INSUFFICIENT": "DIS_INSUFFICIENT"
+    }
+  },
+
+  "route_budgets": {
+    "mpa.rumpole": {
+      "tokens_output_max": 1800,
+      "time_ms": 60000,
+      "mem_mb": 512
+    },
+    "mpt.*": {
+      "tool_calls_max": 6,
+      "web_requests_max": 3,
+      "time_ms": 30000,
+      "mem_mb": 256,
+      "depth_max": 4
+    },
+    "mps.*": {
+      "time_ms": 60000,
+      "mem_mb": 512,
+      "depth_max": 6
+    },
+    "mpx.*": {
+      "time_ms": 15000,
+      "mem_mb": 512,
+      "depth_max": 4
+    }
+  },
+
+  "routing": {
+    "policy": "Apex_only_routes_to_top_level_planes; MPs_own_subrouting",
+    "intent_map": {
+      "law|legal|contract|regulatory": "mpa.rumpole",
+      "medicine|clinical|health": "mpa.doctormartin",
+      "education|school|curriculum": "mpa.dfe",
+      "engineering|dev|software|backend|frontend|react|web|db|sqlserver|bigquery|swift|aws|k8s|automation": "mpe",
+      "science|math|stats|physics|derivation|verification": "mps",
+      "tool.*": "mptool",
+      "default": "mpa"
+    },
+    "hop_bounds": {
+      "max_hops": 6,
+      "on_exceed": "REFUSAL(BOUND_DEPTH)"
+    }
+  },
+
+  "acceptance_tests": {
+    "Apex-T2": "Caller narrows respected; overflow triggers bounded-result path.",
+    "Apex-T3": "Depth > hop_bounds triggers REFUSAL(BOUND_DEPTH).",
+    "Apex-T4": "Plane-specific route budgets applied (Rumpole=1800, MPT=6/3).",
+    "Apex-T5": "Audit chain intact under route_profile_clamp=min policy."
+  }
+}
