@@ -1,0 +1,461 @@
+{
+  "alcuin_reference": {
+    "student_profile_full_schema": {
+      "student_id": "",
+      "full_name": "",
+      "stage": "",
+      "subjects": [],
+      "goals": [],
+      "learning_gaps": [],
+      "exam_board": "",
+      "last_updated": null,
+      "onboarding_state": {
+        "status": "not_started",
+        "started_at": null,
+        "completed_at": null,
+        "expires_after_days": 365,
+        "components": {
+          "identity_min": false,
+          "stage_subjects": false,
+          "goals_gaps": false,
+          "cognitive_baseline": false,
+          "subject_diagnostics": {}
+        }
+      },
+      "cognitive_baseline": {
+        "version": "1.0",
+        "last_run": null,
+        "tests": [],
+        "summary": {
+          "overall_estimate_iq": null,
+          "overall_range": null,
+          "percentile": null,
+          "domains": {
+            "fluid_reasoning": null,
+            "spatial": null,
+            "verbal": null,
+            "working_memory": null,
+            "processing_speed": null
+          },
+          "confidence_notes": null
+        }
+      },
+      "planning_profile": {
+        "pace_factor": 1.0,
+        "scaffold_level": "standard",
+        "problem_novelty": "standard",
+        "cfu_frequency": "per_major_step",
+        "working_memory_supports": [
+          "none"
+        ],
+        "processing_speed_supports": [
+          "none"
+        ],
+        "example_density": "standard",
+        "homework_load": "standard",
+        "retention_spacing_days": [
+          2,
+          7,
+          21
+        ]
+      },
+      "sessions": []
+    },
+    "educator_profile_full_schema": {
+      "full_name": "",
+      "role": "Teacher",
+      "trn_centre_number": "",
+      "institution": "",
+      "email": "",
+      "validation_status": "Unvalidated",
+      "validation_date": null,
+      "regulatory_clearance": false,
+      "permissions": {}
+    },
+    "startup_decision_full": {
+      "entrypoint": "on_launch",
+      "logic": [
+        {
+          "if": "student_profile != null && student_profile.onboarding_state.status == 'completed'",
+          "and_if": "days_since(student_profile.onboarding_state.completed_at) <= student_profile.onboarding_state.expires_after_days",
+          "then": {
+            "route": "main_menu",
+            "show_options": [
+              "teach",
+              "practice",
+              "exam",
+              "review",
+              "profile"
+            ],
+            "banner": null
+          }
+        },
+        {
+          "if": "student_profile != null && student_profile.onboarding_state.status == 'completed'",
+          "and_if": "days_since(student_profile.onboarding_state.completed_at) > student_profile.onboarding_state.expires_after_days",
+          "then": {
+            "route": "onboarding",
+            "force": true,
+            "banner": "Your baseline is out of date. Please complete re-onboarding to continue.",
+            "show_options": [
+              "re_onboard_now",
+              "load_profile_readonly"
+            ]
+          }
+        },
+        {
+          "if": "student_profile != null && student_profile.onboarding_state.status != 'completed'",
+          "then": {
+            "route": "onboarding",
+            "force": true,
+            "banner": "Onboarding required: we’ll run your baseline and placement checks before lessons can start.",
+            "show_options": [
+              "resume_onboarding",
+              "restart_onboarding",
+              "load_profile_readonly"
+            ]
+          }
+        },
+        {
+          "if": "student_profile == null",
+          "then": {
+            "route": "welcome",
+            "force": true,
+            "banner": "Welcome to Alcuin.",
+            "show_options": [
+              "load_existing_profile",
+              "start_onboarding"
+            ]
+          }
+        }
+      ],
+      "actions": {
+        "load_existing_profile": "open_profile_picker()",
+        "start_onboarding": "invoke_onboarding_wizard()",
+        "resume_onboarding": "resume_onboarding_at_last_step()",
+        "restart_onboarding": "reset_onboarding_and_start()",
+        "re_onboard_now": "invoke_onboarding_wizard(rebaseline=true)",
+        "load_profile_readonly": "open_profile_viewer(readonly=true)"
+      }
+    },
+    "cognitive_scoring_full": {
+      "flynn_adjustment": "modern_iq = historic_iq_estimate - (flynn_adjust_ppd * floor((current_year - norm_year) / 10))",
+      "percentile_mapping": "z = (modern_iq - 100) / 15; percentile = CDF_Normal(z) * 100",
+      "confidence_interval": "iq_ci_range = [modern_iq - iq_ci_points, modern_iq + iq_ci_points]",
+      "domain_bands": {
+        "high": ">= 84th percentile",
+        "above_average": "70th–83rd percentile",
+        "average": "30th–69th percentile",
+        "below_average": "16th–29th percentile",
+        "developing": "< 16th percentile"
+      }
+    },
+    "planning_linkage_full": {
+      "defaults": {
+        "pace_factor": 1.0,
+        "scaffold_level": "standard",
+        "problem_novelty": "standard",
+        "cfu_frequency": "per_major_step",
+        "working_memory_supports": [
+          "none"
+        ],
+        "processing_speed_supports": [
+          "none"
+        ],
+        "example_density": "standard",
+        "homework_load": "standard",
+        "retention_spacing_days": [
+          2,
+          7,
+          21
+        ]
+      },
+      "mappings": [
+        {
+          "if": "cognitive_baseline.summary.domains.fluid_reasoning in ['high','above_average']",
+          "then": {
+            "problem_novelty": "high",
+            "example_density": "sparse",
+            "cfu_frequency": "section_end"
+          }
+        },
+        {
+          "if": "cognitive_baseline.summary.domains.fluid_reasoning in ['below_average','developing']",
+          "then": {
+            "problem_novelty": "low",
+            "example_density": "rich",
+            "cfu_frequency": "per_minor_step"
+          }
+        },
+        {
+          "if": "cognitive_baseline.summary.domains.spatial in ['below_average','developing']",
+          "then_append": {
+            "working_memory_supports": [
+              "dual_coding"
+            ],
+            "require_diagrams": true
+          }
+        },
+        {
+          "if": "cognitive_baseline.summary.domains.verbal in ['below_average','developing']",
+          "then_append": {
+            "working_memory_supports": [
+              "glossary_inline",
+              "sentence_stems"
+            ]
+          },
+          "then": {
+            "example_density": "rich"
+          }
+        },
+        {
+          "if": "cognitive_baseline.summary.domains.working_memory in ['below_average','developing']",
+          "then": {
+            "scaffold_level": "full"
+          },
+          "then_append": {
+            "working_memory_supports": [
+              "step_counter",
+              "chunking",
+              "worked_example_pairing"
+            ]
+          }
+        },
+        {
+          "if": "cognitive_baseline.summary.domains.working_memory in ['high','above_average']",
+          "then_conditional": {
+            "condition": "last_two_cfu_pass_rates >= 0.80",
+            "set": {
+              "scaffold_level": "minimal"
+            }
+          }
+        },
+        {
+          "if": "cognitive_baseline.summary.domains.processing_speed in ['below_average','developing']",
+          "then": {
+            "pace_factor": 0.9,
+            "homework_load": "light"
+          },
+          "then_append": {
+            "processing_speed_supports": [
+              "untimed_practice",
+              "extra_time_1_2"
+            ]
+          }
+        },
+        {
+          "if": "cognitive_baseline.summary.domains.processing_speed in ['high','above_average']",
+          "then": {
+            "pace_factor": 1.2,
+            "homework_load": "extended"
+          }
+        },
+        {
+          "if": "cognitive_baseline.summary.overall_range[1] >= 120",
+          "then": {
+            "retention_spacing_days": [
+              3,
+              10,
+              30
+            ]
+          }
+        },
+        {
+          "if": "cognitive_baseline.summary.overall_range[0] <= 90",
+          "then": {
+            "retention_spacing_days": [
+              1,
+              4,
+              14
+            ],
+            "cfu_frequency": "per_major_step"
+          }
+        }
+      ],
+      "topic_planner": {
+        "start_difficulty": {
+          "rule": "if cognitive_baseline.summary.domains.fluid_reasoning in ['average','above_average','high'] then 'median' else 'easy'"
+        },
+        "adaptive_bump": {
+          "on_three_correct_no_hints": "+1",
+          "on_two_consecutive_errors": "-1_and_enable_worked_example_pairing"
+        },
+        "novelty_control": {
+          "if_problem_novelty_high": {
+            "min_non_routine_fraction": 0.4
+          },
+          "if_problem_novelty_low": {
+            "max_non_routine_fraction": 0.1
+          }
+        },
+        "sequence_template": [
+          {
+            "step": "Concept intro",
+            "supports_from_profile": true,
+            "cfu": "quick_check"
+          },
+          {
+            "step": "Worked example 1",
+            "supports_from_profile": true,
+            "cfu": "2_items"
+          },
+          {
+            "step": "Guided practice",
+            "supports_from_profile": true,
+            "cfu": "3_items"
+          },
+          {
+            "step": "Independent practice",
+            "supports_from_profile": true,
+            "cfu": "exit_ticket_2_items"
+          }
+        ]
+      },
+      "cfu_policy": {
+        "per_minor_step": {
+          "items_per_cfu": 2,
+          "placement": "each_minor_step"
+        },
+        "per_major_step": {
+          "items_per_cfu": 3,
+          "placement": "each_major_step"
+        },
+        "section_end": {
+          "items_per_cfu": 5,
+          "placement": "end_only",
+          "if_score_below": 0.8,
+          "then": {
+            "backtrack_steps": 1,
+            "set_cfu_frequency": "per_major_step"
+          }
+        }
+      },
+      "scaffold_lift_add": {
+        "lift": {
+          "trigger": "any_domain in ['high','above_average'] AND last_two_cfu_pass_rates >= 0.80",
+          "set": {
+            "scaffold_level": "minimal",
+            "example_density": "sparse"
+          }
+        },
+        "add": {
+          "trigger": "any_domain == 'developing' AND two_recent_cfu_below_0_70",
+          "set": {
+            "scaffold_level": "full",
+            "working_memory_supports_add": [
+              "worked_example_pairing",
+              "chunking"
+            ]
+          }
+        }
+      },
+      "homework_spacing": {
+        "loads": {
+          "light": {
+            "items": [
+              6,
+              8
+            ],
+            "interleaving_fraction": 0.2
+          },
+          "standard": {
+            "items": [
+              8,
+              10
+            ],
+            "interleaving_fraction": 0.15
+          },
+          "extended": {
+            "items": [
+              10,
+              14
+            ],
+            "interleaving_fraction": 0.2
+          }
+        },
+        "spacing_rules": {
+          "if_pace_ge_1_15": {
+            "retention_spacing_days": [
+              3,
+              10,
+              30
+            ],
+            "homework_load": "extended"
+          },
+          "if_pace_le_0_90": {
+            "retention_spacing_days": [
+              1,
+              4,
+              14
+            ],
+            "homework_load": "light"
+          }
+        }
+      },
+      "write_back": {
+        "on_update": "append session entry with planning snapshot",
+        "ledger_template": {
+          "event": "planning_update",
+          "planning_snapshot_fields": [
+            "pace_factor",
+            "scaffold_level",
+            "problem_novelty",
+            "cfu_frequency",
+            "working_memory_supports",
+            "processing_speed_supports",
+            "example_density",
+            "homework_load",
+            "retention_spacing_days"
+          ],
+          "evidence_fields": [
+            "cfu_mean",
+            "errors_consecutive_max"
+          ]
+        }
+      }
+    },
+    "audit_templates": {
+      "ledger_planning_update_example": {
+        "session_id": "S-XXXX",
+        "date": "2025-09-01T11:05:00+01:00",
+        "event": "planning_update",
+        "planning_snapshot": {
+          "pace_factor": 0.9,
+          "scaffold_level": "full",
+          "problem_novelty": "low",
+          "cfu_frequency": "per_minor_step",
+          "working_memory_supports": [
+            "step_counter",
+            "chunking",
+            "dual_coding"
+          ],
+          "processing_speed_supports": [
+            "untimed_practice",
+            "extra_time_1_2"
+          ],
+          "example_density": "rich",
+          "homework_load": "light",
+          "retention_spacing_days": [
+            1,
+            4,
+            14
+          ]
+        },
+        "evidence": {
+          "cfu_mean": 0.72,
+          "errors_consecutive_max": 2
+        }
+      },
+      "session_entry_baseline_example": {
+        "session_id": "OB-2025-09-01-01",
+        "date": "2025-09-01T10:00:00+01:00",
+        "event": "onboarding_step",
+        "step": "cognitive_baseline",
+        "result_refs": [
+          "CB-2025-09-01-001"
+        ],
+        "status": "completed"
+      }
+    }
+  }
+}

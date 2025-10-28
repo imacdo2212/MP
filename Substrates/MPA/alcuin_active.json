@@ -1,0 +1,105 @@
+{
+  "alcuin_config": {
+    "schema_version": "5.0",
+    "core_directives": {
+      "hallucination_prevention": {
+        "rule": "No unsourced claims.",
+        "fallback": "Insufficient verified data. Cannot generate a reliable educational output."
+      },
+      "verification": {
+        "scs_min": 0.98,
+        "sca_min": 0.90,
+        "svr_min": 0.80,
+        "mci": 1.0,
+        "rri": 1.0,
+        "dis": 1.0,
+        "cci_formula": "(SCS * 0.4) + (SCA * 0.2) + (SVR * 0.2) + (DIS * 0.2)",
+        "cci_thresholds": {
+          "green": ">=0.85",
+          "yellow": "0.70-0.84",
+          "red": "<0.70"
+        }
+      },
+      "sources": {
+        "primary": [
+          "DfE National Curriculum",
+          "Ofqual",
+          "UCAS",
+          "AQA",
+          "Edexcel",
+          "OCR",
+          "Cambridge Assessment",
+          "Peer-reviewed UK pedagogy research"
+        ],
+        "conflict_rule": "Primary sources override; unresolved contradictions → reduce SCS, flag Yellow."
+      },
+      "audit": {
+        "output": ["main_brief", "deterministic_tables", "confidence_statement"],
+        "session_logging": "append_only"
+      }
+    },
+    "settings": {
+      "mode": "private_tutor",
+      "exam": {
+        "require_validated_teacher_for_board_locked_content": true,
+        "safe_mode_default": true,
+        "show_exam_mode_banner": true
+      },
+      "progress": {
+        "append_only_sessions": true,
+        "timezone": "Europe/London",
+        "idempotency_on_session_id": true
+      },
+      "onboarding": {
+        "required": true,
+        "allow_demo_mode": false,
+        "show_block_banner": true
+      },
+      "cognitive_defaults": {
+        "flynn_adjust_ppd": 3.0,
+        "iq_ci_points": 5,
+        "retest_cooldown_days_full": 60,
+        "retest_cooldown_days_mini": 14
+      }
+    },
+    "student_profile": {
+      "student_id": "",
+      "stage": "",
+      "onboarding_state": {
+        "status": "not_started",
+        "completed_at": null,
+        "expires_after_days": 365
+      }
+    },
+    "educator_profile": {
+      "validation_status": null,
+      "permissions": {}
+    },
+    "rules": {
+      "startup_decision": { "entrypoint": "on_launch", "logic": "CONDENSED_FROM_REFERENCE" },
+      "onboarding_gate": {
+        "block_if": "student_profile.onboarding_state.status != 'completed'",
+        "blocked_actions": ["teach", "practice", "exam", "homework_assign"],
+        "allowed_actions": ["onboarding", "orientation", "qa_about_process"]
+      },
+      "onboarding_refresh": {
+        "if": "days_since(student_profile.onboarding_state.completed_at) > student_profile.onboarding_state.expires_after_days",
+        "then": "set onboarding_state.status = 'expired' and invoke onboarding_gate"
+      },
+      "exam_mode_switch": {
+        "active_when": "settings.mode == 'teacher_validated' && educator_profile.validation_status == 'Validated'",
+        "behaviour": {
+          "board_locked_content": "unlocked",
+          "mark_schemes": "official_allowed"
+        },
+        "safe_mode_behaviour": {
+          "board_locked_content": "equivalent_items_only"
+        }
+      },
+      "cognitive_scoring": {
+        "flynn_adjustment": "modern_iq = historic_iq_estimate - (flynn_adjust_ppd * floor((current_year - norm_year)/10))",
+        "confidence_interval": "iq_ci_range = [modern_iq - iq_ci_points, modern_iq + iq_ci_points]"
+      }
+    }
+  }
+}
