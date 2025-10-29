@@ -17,6 +17,7 @@ export interface IngressRequestBody {
   route?: string;
   hops?: number;
   payload?: Record<string, unknown>;
+  timestamp?: string;
   capabilities?: IngressCapabilityRequest[];
 }
 
@@ -57,6 +58,16 @@ function buildHopBounds(manifestConfig: ManifestConfig): HopBounds {
   };
 }
 
+function resolveRequestedAt(value?: string): string {
+  if (value) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  return new Date().toISOString();
+}
+
 export function createRequestContext(
   manifestConfig: ManifestConfig,
   refusalAliases: RefusalAliases,
@@ -66,11 +77,13 @@ export function createRequestContext(
   const hopCount = sanitizeHopCount(body.hops);
   const budgets = manifestConfig.resolveBudgets(route);
   const hopBounds = buildHopBounds(manifestConfig);
+  const requestedAt = resolveRequestedAt(body.timestamp);
   const execId = createExecId({
     route,
     hopCount,
     budgets,
-    payload: body.payload ?? null
+    payload: body.payload ?? null,
+    timestamp: requestedAt
   });
 
   const audit: AuditRecord = {
@@ -82,7 +95,7 @@ export function createRequestContext(
       codeAlias: hopBounds.codeAlias
     },
     budgets,
-    requestedAt: new Date().toISOString(),
+    requestedAt,
     capabilityResults: []
   };
 
