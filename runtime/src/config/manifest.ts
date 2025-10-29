@@ -210,10 +210,6 @@ export async function loadManifest(
   return manifestSchema.parse(json);
 }
 
-export async function loadManifestConfig(
-  manifestPath?: string
-): Promise<ManifestConfig> {
-  const manifest = await loadManifest(manifestPath);
 export function createManifestConfig(manifest: Manifest): ManifestConfig {
   const routeBudgets = buildRouteBudgetTable(manifest);
   const defaults = manifest.config.budgets_defaults;

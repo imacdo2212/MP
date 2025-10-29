@@ -42,6 +42,8 @@ export async function closePool(): Promise<void> {
 
   await pool.end();
   pool = null;
+}
+
 export interface QueryResult<T = unknown> {
   rows: T[];
 }
