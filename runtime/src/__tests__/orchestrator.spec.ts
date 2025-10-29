@@ -98,6 +98,54 @@ async function createTestingContext(options: { capabilityMode?: string } = {}) {
 
 const activeApps: NestFastifyApplication[] = [];
 
+const SAMPLE_MEDICAL_PAYLOAD = {
+  chiefComplaint: 'Acute chest pain radiating to left arm',
+  symptoms: ['Chest pain', 'Shortness of breath'],
+  vitals: { heartRate: 128, systolic: 182, diastolic: 96, spo2: 91 },
+  medications: ['Aspirin 81mg daily'],
+  history: ['Hypertension']
+};
+
+const SAMPLE_EDUCATION_PAYLOAD = {
+  learner: 'Ava',
+  age: 11,
+  objectives: [
+    { topic: 'Fractions equivalence', competency: 'emerging' },
+    { topic: 'Multiplication facts', competency: 'developing' }
+  ],
+  observations: [{ note: 'Struggles to compare unlike denominators', evidenceType: 'assessment' }],
+  targetOutcomes: ['Mastery of Year 6 fractions'],
+  constraints: ['30 minute lesson block']
+};
+
+const SAMPLE_ENGINEERING_PAYLOAD = {
+  objective: 'Ship event-driven notifications service',
+  stack: ['TypeScript', 'Kafka', 'PostgreSQL'],
+  constraints: ['Must deploy on existing Kubernetes cluster'],
+  risks: ['Schema drift across services'],
+  acceptanceCriteria: ['Handle 10k notifications/minute'],
+  repoState: 'Monorepo with modular packages'
+};
+
+const SAMPLE_SCIENCE_PAYLOAD = {
+  question: 'Does fertilizer X increase tomato yield?',
+  hypothesis: 'Fertilizer X increases yield by at least 15%',
+  method: 'Randomized controlled greenhouse trial',
+  dataset: [
+    { label: 'Control1', value: 3.1 },
+    { label: 'Control2', value: 3.4 },
+    { label: 'Treatment1', value: 3.9 },
+    { label: 'Treatment2', value: 4.2 }
+  ],
+  constraints: ['limited budget']
+};
+
+const SAMPLE_TOOL_PAYLOAD = {
+  tasks: ['Find current API quota for Maps', 'Summarize documentation updates'],
+  preferredTools: ['tool.webSearch', 'tool.summarize'],
+  environment: 'prod-support'
+};
+
 afterEach(async () => {
   delete process.env.CAPABILITY_MODE;
   while (activeApps.length > 0) {
@@ -309,6 +357,11 @@ describe('OrchestratorService', () => {
     activeApps.push(ctx.app);
 
     const response = await ctx.orchestrator.execute({
+      intent: 'General inquiry outside routed domains',
+      payload: { question: 'What is the schedule?' }
+    });
+
+    expect(response.route).toBe('mpa');
       intent: 'tool.lookup dataset',
       payload: { query: 'status' }
     });
@@ -343,6 +396,86 @@ describe('OrchestratorService', () => {
 
     expect(response.terminationCode).toBe('OK_PLACEHOLDER');
     expect(response.metadata).toMatchObject({ adapter: 'placeholder', placeholder: true });
+  });
+
+  it('routes medical intents to Doctor Martin adapter', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'Clinical triage chest pain',
+      payload: SAMPLE_MEDICAL_PAYLOAD
+    });
+
+    expect(response.route).toBe('mpa.doctormartin');
+    expect(response.terminationCode).toBe('OK_DOCTORMARTIN_TRIAGE');
+    const triage = response.output?.triage as { disposition?: string } | undefined;
+    expect(triage?.disposition).toBe('emergent');
+    expect(response.metadata).toMatchObject({ adapter: 'doctor-martin', placeholder: false });
+  });
+
+  it('routes education intents to DfE adapter', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'School lesson planning for fractions',
+      payload: SAMPLE_EDUCATION_PAYLOAD
+    });
+
+    expect(response.route).toBe('mpa.dfe');
+    expect(response.terminationCode).toBe('OK_DFE_LESSON_PLAN');
+    const learningPlan = response.output?.learningPlan as { sequence?: unknown[] } | undefined;
+    expect(learningPlan?.sequence).toHaveLength(4);
+    expect(response.metadata).toMatchObject({ adapter: 'dfe', placeholder: false });
+  });
+
+  it('routes engineering intents to MPE adapter', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'Engineering plan for notifications service',
+      payload: SAMPLE_ENGINEERING_PAYLOAD
+    });
+
+    expect(response.route).toBe('mpe');
+    expect(response.terminationCode).toBe('OK_MPE_WORKPLAN');
+    const workstream = response.output?.workstream as { tasks?: unknown[] } | undefined;
+    expect(workstream?.tasks?.length ?? 0).toBeGreaterThan(1);
+    expect(response.metadata).toMatchObject({ adapter: 'engineering', placeholder: false });
+  });
+
+  it('routes science intents to MPS adapter', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'Science experiment analysis for tomato yield',
+      payload: SAMPLE_SCIENCE_PAYLOAD
+    });
+
+    expect(response.route).toBe('mps');
+    expect(response.terminationCode).toBe('OK_MPS_ANALYSIS');
+    const analysis = response.output?.analysis as { descriptiveStats?: { count?: number } } | undefined;
+    expect(analysis?.descriptiveStats?.count).toBe(4);
+    expect(response.metadata).toMatchObject({ adapter: 'science', placeholder: false });
+  });
+
+  it('routes tool intents to toolkit adapter', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'tool.lookup latest api limits',
+      payload: SAMPLE_TOOL_PAYLOAD
+    });
+
+    expect(response.route).toBe('mptool');
+    expect(response.terminationCode).toBe('OK_MPTOOL_PLAYBOOK');
+    const recommended = response.output?.recommendedTools as unknown[] | undefined;
+    expect(recommended?.length).toBe(2);
+    expect(response.metadata).toMatchObject({ adapter: 'mptool', placeholder: false });
   });
 });
 
