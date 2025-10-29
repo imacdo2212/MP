@@ -7,6 +7,7 @@
     "build": "tsc --project tsconfig.json",
     "start": "node --loader ts-node/esm src/index.ts",
     "check": "tsc --noEmit --project tsconfig.json",
+    "test": "npm run build && node --test ./lib/__tests__/*.test.js"
     "test": "node --loader ts-node/esm --test src/config/__tests__/module.test.ts"
   },
   "dependencies": {
