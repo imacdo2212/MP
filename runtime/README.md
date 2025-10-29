@@ -23,6 +23,23 @@ npm run migrate
 - `npm run check` – type-check the codebase.
 - `npm test` – run Vitest suites, including ingress and budget clamp acceptance cases.
 
+## Capability modes
+The runtime now ships with a local legal-analysis adapter and three execution modes controlled by `CAPABILITY_MODE`:
+
+- `local` (default) – attempts to satisfy a route with a registered adapter and falls back to the deterministic placeholder when no adapter is available.
+- `placeholder` – always returns the placeholder envelope regardless of adapter availability (useful for contract testing).
+- `disabled` – raises a capability outage so the orchestrator emits `REFUSAL(DIS_INSUFFICIENT)`.
+
+## Rumpole legal analysis adapter
+Requests routed to `mpa.rumpole` run through a deterministic heuristic that extracts:
+
+- contract summary (first two declarative sentences or a truncated preview),
+- likely parties, effective date, and basic document statistics,
+- obligations and termination clauses keyed off legal keywords,
+- risk flags for indemnification, liability caps, exclusivity, penalties, and missing termination language,
+- lightweight question assessments that mark which caller-supplied questions have supporting evidence in the document.
+
+The adapter operates without external APIs, consumes manifest-provided budgets, and annotates responses with `metadata.adapter = "rumpole"` so clients can audit which capability produced the output.
 ## Placeholder capabilities
 By default the orchestrator returns deterministic placeholder payloads. Set `CAPABILITY_MODE=disabled` to force `REFUSAL(DIS_INSUFFICIENT)` responses when downstream integrations are unavailable. Real adapters can replace `CapabilityService` when ready.
 

@@ -12,6 +12,14 @@ import { ManifestConfigService } from '../config/module.js';
 import { OrchestratorModule } from '../orchestrator/orchestrator.module.js';
 import { OrchestratorService } from '../orchestrator/orchestrator.service.js';
 
+const SAMPLE_CONTRACT = `This Services Agreement ("Agreement") is made effective as of January 5, 2025 between
+Acme Corporation ("Company") and Beta Analytics LLC ("Client"). The Company shall deliver data integration
+services described in Exhibit A, and the Client must provide timely access to relevant systems. Either party may
+terminate this Agreement upon thirty (30) days written notice in the event of material breach not cured within
+fifteen (15) days. The parties agree to maintain confidentiality of all shared materials. Limitation of liability
+restricts damages to direct losses and excludes consequential damages. Indemnification shall be provided by the
+Company for third-party claims arising from its negligence.`;
+
 class InMemoryAuditLedgerService {
   public readonly records: AuditRecord[] = [];
   private readonly throwOnRecord: boolean;
@@ -85,11 +93,17 @@ describe('OrchestratorService', () => {
 
     const response = await ctx.orchestrator.execute({
       intent: 'Legal contract review',
+      payload: { document: SAMPLE_CONTRACT },
       payload: { document: 'agreement' },
       callerBudgets
     });
 
     expect(response.budgets.granted.tokens_output_max).toBe(callerBudgets.tokens_output_max);
+    expect(response.terminationCode).toBe('OK_RUMPOLE_ANALYZED');
+    expect(response.output?.summary).toBeDefined();
+    expect(response.metadata).toMatchObject({ adapter: 'rumpole', placeholder: false });
+    expect(ctx.auditStub.records).toHaveLength(1);
+    expect(ctx.auditStub.records[0].terminationCode).toBe('OK_RUMPOLE_ANALYZED');
     expect(response.terminationCode).toBe('OK_PLACEHOLDER');
     expect(ctx.auditStub.records).toHaveLength(1);
     expect(ctx.auditStub.records[0].terminationCode).toBe('OK_PLACEHOLDER');
@@ -138,6 +152,12 @@ describe('OrchestratorService', () => {
     activeApps.push(ctx.app);
 
     const response = await ctx.orchestrator.execute({
+      intent: 'Legal contract review',
+      payload: { document: SAMPLE_CONTRACT }
+    });
+
+    expect(response.terminationCode).toBe('OK_RUMPOLE_ANALYZED');
+    expect(response.metadata).toMatchObject({ ledgerWriteFailed: true, adapter: 'rumpole' });
       intent: 'Legal contract review'
     });
 
@@ -161,6 +181,33 @@ describe('OrchestratorService', () => {
     expect(response.terminationCode).toBe(expectedCode);
     expect(response.metadata).toMatchObject({ ledgerWriteFailed: true });
   });
+
+  it('falls back to placeholder output when no adapter matches the route', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'tool.lookup dataset',
+      payload: { query: 'status' }
+    });
+
+    expect(response.route).toBe('mptool');
+    expect(response.terminationCode).toBe('OK_PLACEHOLDER');
+    expect(response.metadata).toMatchObject({ adapter: 'placeholder', placeholder: true });
+  });
+
+  it('honors placeholder mode even when an adapter exists', async () => {
+    const ctx = await createTestingContext({ capabilityMode: 'placeholder' });
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'Legal contract review',
+      payload: { document: SAMPLE_CONTRACT }
+    });
+
+    expect(response.terminationCode).toBe('OK_PLACEHOLDER');
+    expect(response.metadata).toMatchObject({ adapter: 'placeholder', placeholder: true });
+  });
 });
 
 describe('Orchestrator HTTP ingress', () => {
@@ -172,12 +219,16 @@ describe('Orchestrator HTTP ingress', () => {
       .post('/orchestrator')
       .send({
         intent: 'Legal contract review',
+        payload: { document: SAMPLE_CONTRACT }
         payload: { document: 'nda' }
       })
       .expect(200);
 
     expect(response.body).toMatchObject({
       route: 'mpa.rumpole',
+      terminationCode: 'OK_RUMPOLE_ANALYZED'
+    });
+    expect(response.body.output.summary).toBeDefined();
       terminationCode: 'OK_PLACEHOLDER'
     });
     expect(ctx.auditStub.records).toHaveLength(1);
