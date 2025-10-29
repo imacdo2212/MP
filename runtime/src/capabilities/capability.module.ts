@@ -13,6 +13,10 @@ import { RumpoleCapabilityAdapter } from './rumpole.adapter.js';
       inject: [RumpoleCapabilityAdapter]
     }
   ],
+import { CapabilityService } from './capability.service.js';
+
+@Module({
+  providers: [CapabilityService],
   exports: [CapabilityService]
 })
 export class CapabilityModule {}
