@@ -31,5 +31,30 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
     "vitest": "^4.0.5"
+    "start": "node --loader ts-node/esm src/index.ts",
+    "start:nest": "node --loader ts-node/esm src/main.ts",
+    "check": "tsc --noEmit --project tsconfig.json",
+    "migrate": "node --loader ts-node/esm src/db/migrate.ts",
+    "test": "vitest run"
+    "test": "node --loader ts-node/esm --test src/config/__tests__/module.test.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.3.10",
+    "@nestjs/config": "^3.2.2",
+    "@nestjs/core": "^10.3.10",
+    "@nestjs/platform-fastify": "^10.3.10",
+    "fastify": "^4.27.2",
+    "pg": "^8.11.5",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "@types/pg": "^8.10.6",
+    "pg-mem": "^3.0.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.5.0"
   }
 }

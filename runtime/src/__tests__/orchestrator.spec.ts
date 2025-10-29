@@ -24,6 +24,8 @@ class InMemoryAuditLedgerService {
     if (this.throwOnRecord) {
       throw new Error('ledger unavailable');
     }
+
+  async record(record: AuditRecord): Promise<string> {
     this.records.push(record);
     return `hash_${this.records.length}`;
   }
@@ -35,6 +37,7 @@ class InMemoryAuditLedgerService {
 async function createTestingContext(
   options: { capabilityMode?: string; ledgerThrows?: boolean } = {}
 ) {
+async function createTestingContext(options: { capabilityMode?: string } = {}) {
   if (options.capabilityMode) {
     process.env.CAPABILITY_MODE = options.capabilityMode;
   } else {
@@ -42,6 +45,7 @@ async function createTestingContext(
   }
 
   const auditStub = new InMemoryAuditLedgerService({ throwOnRecord: options.ledgerThrows });
+  const auditStub = new InMemoryAuditLedgerService();
 
   const moduleRef = await Test.createTestingModule({
     imports: [OrchestratorModule]

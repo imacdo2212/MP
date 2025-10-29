@@ -102,6 +102,8 @@ export interface ManifestConfig {
   getIntentRoute: (intent: string) => string;
 }
 
+export const MANIFEST_CONFIG_KEY = 'manifestConfig';
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -214,6 +216,7 @@ export async function loadManifestConfig(
   manifestPath?: string
 ): Promise<ManifestConfig> {
   const manifest = await loadManifest(manifestPath);
+export function createManifestConfig(manifest: Manifest): ManifestConfig {
   const routeBudgets = buildRouteBudgetTable(manifest);
   const defaults = manifest.config.budgets_defaults;
   const clamp = manifest.config.budget_policy.route_profile_clamp;
@@ -233,4 +236,11 @@ export async function loadManifestConfig(
       return selectIntentRoute(manifest, intent);
     }
   };
+}
+
+export async function loadManifestConfig(
+  manifestPath?: string
+): Promise<ManifestConfig> {
+  const manifest = await loadManifest(manifestPath);
+  return createManifestConfig(manifest);
 }
