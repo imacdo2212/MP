@@ -1,4 +1,9 @@
 import { Module } from '@nestjs/common';
+
+import { OrchestratorModule } from './orchestrator/orchestrator.module.js';
+
+@Module({
+  imports: [OrchestratorModule]
 import { ConfigModule } from '@nestjs/config';
 
 import { loadManifestConfig, MANIFEST_CONFIG_KEY } from './config/manifest.js';
