@@ -5,11 +5,15 @@ import { recordAudit } from './audit/index.js';
 async function main() {
   const execId = randomUUID();
   const config = await loadManifestConfig();
+import { ConfigModule } from './config/module.js';
 
-  const rumpoleBudgets = config.resolveBudgets('mpa.rumpole');
-  const toolBudgets = config.resolveBudgets('mpt.query');
-  const legalRoute = config.getIntentRoute('legal contract review');
-  const defaultRoute = config.getIntentRoute('unknown request');
+async function main() {
+  await ConfigModule.bootstrap();
+
+  const rumpoleBudgets = ConfigModule.resolveBudgets('mpa.rumpole');
+  const toolBudgets = ConfigModule.resolveBudgets('mpt.query');
+  const legalRoute = ConfigModule.getIntentRoute('legal contract review');
+  const defaultRoute = ConfigModule.getIntentRoute('unknown request');
 
   const budgetsGranted: Record<string, unknown> = {
     ...config.manifest.config.budgets_defaults
