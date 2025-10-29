@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { ZodIssue } from 'zod';
 
 import type { BudgetDefaults, BudgetOverrides, Manifest } from '../config/manifest.js';
 import { ManifestConfigService } from '../config/module.js';
@@ -10,6 +11,7 @@ import {
 } from '../capabilities/capability.service.js';
 import { AuditLedgerService } from '../db/audit-ledger.service.js';
 import type { BudgetConsumption } from '../db/ledger.js';
+import { orchestratorRequestSchema } from './request-validation.js';
 
 export interface OrchestratorRequest {
   intent: string;
@@ -42,6 +44,48 @@ export class OrchestratorService {
 
   async execute(request: OrchestratorRequest): Promise<OrchestratorResponse> {
     const manifest = await this.manifest.getManifest();
+    const intent = typeof request.intent === 'string' ? request.intent.trim() : '';
+    const payload = request.payload ?? {};
+
+    const envelopeResult = orchestratorRequestSchema.safeParse({
+      ...request,
+      intent,
+      payload
+    });
+
+    if (!envelopeResult.success) {
+      const defaultBudgets = await this.manifest.resolveBudgets('mpa');
+      const reason = this.formatValidationIssues(envelopeResult.error.issues);
+      const sanitizedRequest: OrchestratorRequest = {
+        intent,
+        payload,
+        callerBudgets: undefined,
+        hopsTaken: typeof request.hopsTaken === 'number' ? request.hopsTaken : undefined,
+        requestId: this.extractRequestId(request.requestId)
+      };
+
+      return this.buildRefusalResponse({
+        request: sanitizedRequest,
+        hopCount: (sanitizedRequest.hopsTaken ?? 0) + 1,
+        terminationCode: manifest.config.refusal_aliases.ENTROPY_CLARITY ?? 'REFUSAL(ENTROPY_CLARITY)',
+        reason: reason ? `Clarity gate rejected request: ${reason}` : 'Clarity gate rejected request.',
+        budgets: defaultBudgets
+      });
+    }
+
+    if (!intent) {
+      const defaultBudgets = await this.manifest.resolveBudgets('mpa');
+      const sanitizedRequest: OrchestratorRequest = {
+        intent,
+        payload,
+        callerBudgets: envelopeResult.data.callerBudgets,
+        hopsTaken: envelopeResult.data.hopsTaken,
+        requestId: envelopeResult.data.requestId
+      };
+
+      return this.buildRefusalResponse({
+        request: sanitizedRequest,
+        hopCount: (sanitizedRequest.hopsTaken ?? 0) + 1,
     const intent = request.intent?.trim();
     const payload = request.payload ?? {};
 
@@ -56,11 +100,27 @@ export class OrchestratorService {
       });
     }
 
+    const normalizedEnvelope = envelopeResult.data;
+    const sanitizedRequest: OrchestratorRequest = {
+      intent,
+      payload,
+      callerBudgets: normalizedEnvelope.callerBudgets,
+      hopsTaken: normalizedEnvelope.hopsTaken,
+      requestId: normalizedEnvelope.requestId
+    };
+
     const route = await this.manifest.getIntentRoute(intent);
     const baseBudgets = await this.manifest.resolveBudgets(route);
     const grantedBudgets = this.applyCallerBudgets(
       manifest.config.budget_policy,
       baseBudgets,
+      normalizedEnvelope.callerBudgets
+    );
+    const hopCount = (normalizedEnvelope.hopsTaken ?? 0) + 1;
+
+    if (hopCount > manifest.routing.hop_bounds.max_hops) {
+      return this.buildRefusalResponse({
+        request: sanitizedRequest,
       request.callerBudgets
     );
     const hopCount = (request.hopsTaken ?? 0) + 1;
@@ -76,6 +136,7 @@ export class OrchestratorService {
       });
     }
 
+    const execId = this.createExecId(intent, payload, route, normalizedEnvelope.requestId);
     const execId = this.createExecId(intent, payload, route, request.requestId);
 
     try {
@@ -102,6 +163,7 @@ export class OrchestratorService {
           terminationCode: capabilityResult.terminationCode,
           metadata: {
             ...capabilityResult.metadata,
+            requestId: normalizedEnvelope.requestId ?? null
             requestId: request.requestId ?? null
           }
         });
@@ -159,6 +221,7 @@ export class OrchestratorService {
           terminationCode: refusalCode,
           metadata: {
             error: error instanceof Error ? error.message : String(error),
+            requestId: normalizedEnvelope.requestId ?? null
             requestId: request.requestId ?? null
           }
         });
@@ -217,6 +280,12 @@ export class OrchestratorService {
     terminationCode: string;
     reason: string;
   }): Promise<OrchestratorResponse> {
+    const execId = this.createExecId(
+      request.intent ?? '',
+      request.payload ?? {},
+      route,
+      this.extractRequestId(request.requestId)
+    );
     const execId = this.createExecId(request.intent ?? '', request.payload ?? {}, route, request.requestId);
 
     let ledgerWriteFailed = false;
@@ -356,6 +425,23 @@ export class OrchestratorService {
 
     return value;
   }
+
+  private formatValidationIssues(issues: ZodIssue[]): string {
+    return issues
+      .map((issue) => {
+        const path = issue.path.join('.') || 'request';
+        return `${path}: ${issue.message}`;
+      })
+      .join('; ');
+  }
+
+  private extractRequestId(raw: unknown): string | undefined {
+    if (typeof raw !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
 import { createHash } from 'node:crypto';
 
 import type { AuditFrame, AuditRecorderOptions } from '../audit/index.js';

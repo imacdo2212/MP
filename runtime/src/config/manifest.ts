@@ -37,6 +37,7 @@ const budgetsDefaultsSchema: z.ZodType<BudgetDefaults> = z.object({
   cot_visibility: z.string()
 });
 
+export const budgetOverridesSchema = z.object({
 const budgetOverridesSchema = z.object({
   tokens_prompt_max: budgetNumberSchema.optional(),
   tokens_output_max: budgetNumberSchema.optional(),

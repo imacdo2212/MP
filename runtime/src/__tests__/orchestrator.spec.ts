@@ -158,6 +158,67 @@ describe('OrchestratorService', () => {
 
     expect(response.terminationCode).toBe('OK_RUMPOLE_ANALYZED');
     expect(response.metadata).toMatchObject({ ledgerWriteFailed: true, adapter: 'rumpole' });
+    expect(ctx.auditStub.records).toHaveLength(0);
+  });
+
+  it('returns clarity refusal when caller budgets are invalid', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'Legal contract review',
+      payload: { document: SAMPLE_CONTRACT },
+      callerBudgets: {
+        tokens_output_max: -10 as unknown as number
+      }
+    });
+
+    const manifest = await ctx.manifest.getManifest();
+    const expectedCode =
+      manifest.config.refusal_aliases.ENTROPY_CLARITY ?? 'REFUSAL(ENTROPY_CLARITY)';
+
+    expect(response.terminationCode).toBe(expectedCode);
+    expect(response.refusal?.code).toBe(expectedCode);
+    expect(response.refusal?.reason).toContain('tokens_output_max');
+    expect(ctx.auditStub.records).toHaveLength(1);
+    expect(ctx.auditStub.records[0].terminationCode).toBe(expectedCode);
+  });
+
+  it('returns clarity refusal when hopsTaken is negative', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'Legal contract review',
+      hopsTaken: -1 as unknown as number
+    });
+
+    const manifest = await ctx.manifest.getManifest();
+    const expectedCode =
+      manifest.config.refusal_aliases.ENTROPY_CLARITY ?? 'REFUSAL(ENTROPY_CLARITY)';
+
+    expect(response.terminationCode).toBe(expectedCode);
+    expect(response.refusal?.code).toBe(expectedCode);
+    expect(response.refusal?.reason).toContain('hopsTaken');
+  });
+
+  it('returns clarity refusal when requestId is malformed', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'Legal contract review',
+      requestId: 12345 as unknown as string
+    });
+
+    const manifest = await ctx.manifest.getManifest();
+    const expectedCode =
+      manifest.config.refusal_aliases.ENTROPY_CLARITY ?? 'REFUSAL(ENTROPY_CLARITY)';
+
+    expect(response.terminationCode).toBe(expectedCode);
+    expect(response.refusal?.code).toBe(expectedCode);
+    expect(response.refusal?.reason).toContain('requestId');
+    expect(ctx.auditStub.records).toHaveLength(1);
       intent: 'Legal contract review'
     });
 
