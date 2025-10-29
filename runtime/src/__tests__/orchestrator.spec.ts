@@ -11,6 +11,10 @@ import { AuditLedgerService } from '../db/audit-ledger.service.js';
 import { ManifestConfigService } from '../config/module.js';
 import { OrchestratorModule } from '../orchestrator/orchestrator.module.js';
 import { OrchestratorService } from '../orchestrator/orchestrator.service.js';
+import {
+  CAPABILITY_ADAPTERS,
+  type CapabilityAdapter
+} from '../capabilities/capability.service.js';
 
 const SAMPLE_CONTRACT = `This Services Agreement ("Agreement") is made effective as of January 5, 2025 between
 Acme Corporation ("Company") and Beta Analytics LLC ("Client"). The Company shall deliver data integration
@@ -42,6 +46,13 @@ class InMemoryAuditLedgerService {
   async onModuleDestroy(): Promise<void> {}
 }
 
+interface TestingContextOptions {
+  capabilityMode?: string;
+  ledgerThrows?: boolean;
+  adapters?: CapabilityAdapter[];
+}
+
+async function createTestingContext(options: TestingContextOptions = {}) {
 async function createTestingContext(
   options: { capabilityMode?: string; ledgerThrows?: boolean } = {}
 ) {
@@ -53,6 +64,17 @@ async function createTestingContext(options: { capabilityMode?: string } = {}) {
   }
 
   const auditStub = new InMemoryAuditLedgerService({ throwOnRecord: options.ledgerThrows });
+
+  let moduleBuilder = Test.createTestingModule({
+    imports: [OrchestratorModule]
+  }).overrideProvider(AuditLedgerService)
+    .useValue(auditStub);
+
+  if (options.adapters) {
+    moduleBuilder = moduleBuilder.overrideProvider(CAPABILITY_ADAPTERS).useValue(options.adapters);
+  }
+
+  const moduleRef = await moduleBuilder.compile();
   const auditStub = new InMemoryAuditLedgerService();
 
   const moduleRef = await Test.createTestingModule({
@@ -84,6 +106,34 @@ afterEach(async () => {
 });
 
 describe('OrchestratorService', () => {
+  it('Apex-T2: caller narrowing respected and overflow bounded', async () => {
+    class OverflowAdapter implements CapabilityAdapter {
+      supports(route: string): boolean {
+        return route.toLowerCase() === 'mpa.rumpole';
+      }
+
+      async execute() {
+        return {
+          terminationCode: 'OK_OVERFLOW_SIMULATION',
+          consumedBudgets: {
+            tokens_output_max: 5_000,
+            tokens_prompt_max: 4_800,
+            time_ms: 120_000,
+            mem_mb: 1_024,
+            depth_max: 10,
+            clarifying_questions_max: 5,
+            tools_max: 3,
+            tool_calls_max: 8,
+            web_requests_max: 4,
+            code_exec_ms_max: 30_000
+          },
+          output: { bounded: true },
+          metadata: { adapter: 'overflow-sim', placeholder: false }
+        } satisfies Awaited<ReturnType<CapabilityAdapter['execute']>>;
+      }
+    }
+
+    const ctx = await createTestingContext({ adapters: [new OverflowAdapter()] });
   it('respects caller narrowing on budgets', async () => {
     const ctx = await createTestingContext();
     activeApps.push(ctx.app);
@@ -99,6 +149,17 @@ describe('OrchestratorService', () => {
     });
 
     expect(response.budgets.granted.tokens_output_max).toBe(callerBudgets.tokens_output_max);
+    expect(response.budgets.consumed.tokens_output_max).toBe(callerBudgets.tokens_output_max);
+    expect(response.budgets.consumed.time_ms).toBeLessThanOrEqual(response.budgets.granted.time_ms);
+    expect(response.terminationCode).toBe('OK_OVERFLOW_SIMULATION');
+    expect(response.metadata).toMatchObject({ adapter: 'overflow-sim', placeholder: false });
+    expect(ctx.auditStub.records).toHaveLength(1);
+    expect(ctx.auditStub.records[0].budgetsConsumed.tokens_output_max).toBe(
+      callerBudgets.tokens_output_max
+    );
+  });
+
+  it('Apex-T3: exceeding hop bounds emits configured refusal', async () => {
     expect(response.terminationCode).toBe('OK_RUMPOLE_ANALYZED');
     expect(response.output?.summary).toBeDefined();
     expect(response.metadata).toMatchObject({ adapter: 'rumpole', placeholder: false });
@@ -255,6 +316,20 @@ describe('OrchestratorService', () => {
     expect(response.route).toBe('mptool');
     expect(response.terminationCode).toBe('OK_PLACEHOLDER');
     expect(response.metadata).toMatchObject({ adapter: 'placeholder', placeholder: true });
+  });
+
+  it('Apex-T4: applies plane-specific budgets for routed intents', async () => {
+    const ctx = await createTestingContext();
+    activeApps.push(ctx.app);
+
+    const defaults = await ctx.manifest.resolveBudgets('mpa');
+    const rumpoleBudgets = await ctx.manifest.resolveBudgets('mpa.rumpole');
+    const toolBudgets = await ctx.manifest.resolveBudgets('mpt.search');
+
+    expect(rumpoleBudgets.tokens_output_max).toBe(1800);
+    expect(rumpoleBudgets.tokens_output_max).toBeGreaterThan(defaults.tokens_output_max);
+    expect(toolBudgets.tool_calls_max).toBeLessThanOrEqual(defaults.tool_calls_max);
+    expect(toolBudgets.web_requests_max).toBeLessThanOrEqual(defaults.web_requests_max);
   });
 
   it('honors placeholder mode even when an adapter exists', async () => {

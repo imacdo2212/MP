@@ -142,6 +142,12 @@ function applyClamp(
 }
 
 function mergeBudgets(
+  base: BudgetDefaults,
+  overrides: BudgetOverrides,
+  clamp: Manifest['config']['budget_policy']['route_profile_clamp'],
+  overriddenKeys: Set<BudgetKey>
+): EffectiveBudgets {
+  const merged: Record<BudgetKey, BudgetValue> = { ...base };
   defaults: BudgetDefaults,
   overrides: BudgetOverrides,
   clamp: Manifest['config']['budget_policy']['route_profile_clamp']
@@ -156,6 +162,15 @@ function mergeBudgets(
 
     const current = merged[key];
     if (typeof current === 'number' && typeof value === 'number') {
+      if (overriddenKeys.has(key)) {
+        merged[key] = applyClamp(current, value, clamp) as BudgetValue;
+      } else {
+        merged[key] = value as BudgetValue;
+        overriddenKeys.add(key);
+      }
+    } else {
+      merged[key] = value as BudgetValue;
+      overriddenKeys.add(key);
       merged[key] = applyClamp(current, value, clamp) as BudgetValue;
     } else {
       merged[key] = value as BudgetValue;
@@ -226,6 +241,11 @@ export function createManifestConfig(manifest: Manifest): ManifestConfig {
     manifest,
     resolveBudgets(route: string) {
       const routeId = normalizeIntent(route);
+      const overriddenKeys = new Set<BudgetKey>();
+      return routeBudgets
+        .filter(({ matcher }) => matcher.test(routeId))
+        .reduce<EffectiveBudgets>(
+          (acc, { overrides }) => mergeBudgets(acc, overrides, clamp, overriddenKeys),
       return routeBudgets
         .filter(({ matcher }) => matcher.test(routeId))
         .reduce<EffectiveBudgets>(
