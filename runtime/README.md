@@ -99,6 +99,45 @@ straightforward.【F:runtime/src/server/request-context.ts†L65-L99】【F:runt
              { "name": "legalSearch", "scenario": "success" }
            ]
          }' | jq
+   Adapt the payload/evidence columns if you store the snapshot fields denormalised.
+4. **Record migrations** – run the migration before executing the runtime so audit writes succeed. Subsequent schema changes should append new migrations; never mutate history because the ledgers are append-only by design.【F:Education/FLT.md†L30-L78】【F:Additionals/puppy_taxonomy_reference.md†L101-L105】
+
+## 4. Capability adapter modes
+
+The capability registry ships with deterministic stub adapters so you can exercise
+tooling flows without reaching external services. Each capability consults an
+environment toggle with the pattern `CAPABILITY_<NAME>_MODE` where `<NAME>` is the
+uppercased capability identifier (non-alphanumeric characters are converted to `_`).
+
+- `CAPABILITY_LEGAL_SEARCH_MODE`
+- `CAPABILITY_COMPLIANCE_SCANNER_MODE`
+
+Supported values are `stub` (default), `disabled`, and `live`. When set to
+`disabled`, the registry returns a `DIS_INSUFFICIENT` refusal with the manifest’s
+mapped code; `live` requires you to provide a concrete adapter override when
+bootstrapping the registry. Future integrations can supply real adapters through
+the `buildCapabilityRegistry` options object.【F:runtime/src/capabilities/config.ts†L1-L24】【F:runtime/src/capabilities/registry.ts†L92-L144】
+
+## 5. Placeholder adapter feature flags
+
+The Scholar Essay Writer substrate exposes policy locks that gate “placeholder” adapters for tables and figures. Toggle these flags via your configuration layer before invoking draft routes:
+
+- `ALLOW_TABLE_PLACEHOLDERS` – governs whether drafting steps may emit table placeholders. Turning it off falls back to the adaptation ladder and, if no safe adaptation exists, emits `REFUSAL(OUTPUT_LOCKED)`.【F:Substrates/MPA/Scholar Essay Writer.md†L372-L439】
+- `ALLOW_FIGURE_PLACEHOLDERS` – same for figure placeholders. With the flag disabled the system must avoid placeholder emission and refuse if it cannot adapt.【F:Substrates/MPA/Scholar Essay Writer.md†L372-L439】
+- `POLICY_PREFER_ADAPT` – keeps adaptation-first behaviour enabled so that draft routes try compliant alternatives before refusing. Ensure this remains true when testing refusal paths so you can observe both adaptive and locked outcomes.【F:Substrates/MPA/Scholar Essay Writer.md†L372-L402】
+
+Quality gates check the relevant `ALLOW_*` settings before generation, so you can reliably test both success and refusal paths by toggling the flags in your manifest or runtime overrides.【F:Substrates/MPA/Scholar Essay Writer.md†L372-L439】
+
+## 6. Generating ExecIDs and verifying ledger entries
+
+1. **ExecID generation** – both the orchestrator and downstream substrates define the ExecID as a deterministic hash over `{input, budgets, route}`. A minimal Node example is:
+   ```ts
+   import { createHash } from 'crypto';
+
+   function computeExecId(input: unknown, budgets: unknown, route: string) {
+     const payload = JSON.stringify({ input, budgets, route });
+     return createHash('sha256').update(payload).digest('hex');
+   }
    ```
    The response contains a stable `execId`, resolved route, bounded budgets, and an array of capability results. Re-running the
    command emits the same `execId` and audit payload, proving the pipeline’s determinism for the given manifest state.【F:runtime/src/server/routes/ingress.ts†L53-L120】【F:runtime/src/server/request-context.ts†L65-L135】 To test refusal paths, repeat the

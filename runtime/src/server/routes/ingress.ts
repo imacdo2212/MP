@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { ManifestConfig } from '../../config/manifest.js';
 import type { RefusalAliases } from '../../shared/refusals.js';
 import type { CapabilityRegistry } from '../../capabilities/registry.js';
@@ -26,12 +26,14 @@ interface IngressReply {
 
 async function executeWithAudit(
   request: FastifyRequest<{ Body: IngressRequestBody }>,
+  reply: FastifyReply,
   deps: RouteDependencies,
   handler: () => Promise<IngressReply>
 ): Promise<IngressReply> {
+  let result: IngressReply;
+
   try {
-    const result = await handler();
-    return result;
+    result = await handler();
   } catch (error) {
     const ctx = request.ctx;
     if (ctx && !ctx.audit.termination) {
@@ -42,17 +44,48 @@ async function executeWithAudit(
         reason: error instanceof Error ? error.message : 'Unhandled error'
       };
     }
-    throw error;
-  } finally {
+
     if (request.ctx) {
-      await deps.auditWriter.write(request.ctx.audit);
+      try {
+        await deps.auditWriter.write(request.ctx.audit);
+      } catch (writeError) {
+        request.log.error({ err: writeError }, 'audit.write.failed');
+      }
     }
+
+    throw error;
+  }
+
+  if (!request.ctx) {
+    return result;
+  }
+
+  try {
+    await deps.auditWriter.write(request.ctx.audit);
+    return result;
+  } catch (error) {
+    request.log.error({ err: error }, 'audit.write.failed');
+    const code = resolveRefusalCode('TOOL_FAIL', deps.refusalAliases);
+    const reason = 'Audit ledger unavailable';
+    request.ctx.audit.termination = {
+      kind: 'REFUSAL',
+      code,
+      reason
+    };
+    reply.status(503);
+    return {
+      status: 'refusal' as const,
+      code,
+      alias: 'TOOL_FAIL',
+      reason,
+      audit: summarizeAudit(request.ctx.audit)
+    };
   }
 }
 
 export function registerIngressRoute(app: FastifyInstance, deps: RouteDependencies) {
   app.post<{ Body: IngressRequestBody }>('/ingress', async (request, reply) => {
-    return executeWithAudit(request, deps, async () => {
+    return executeWithAudit(request, reply, deps, async () => {
       const body = (request.body ?? {}) as IngressRequestBody;
       request.ctx = createRequestContext(deps.manifestConfig, deps.refusalAliases, body);
       const ctx = request.ctx;
