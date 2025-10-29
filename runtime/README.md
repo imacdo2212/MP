@@ -27,6 +27,10 @@ npm run migrate
 By default the orchestrator returns deterministic placeholder payloads. Set `CAPABILITY_MODE=disabled` to force `REFUSAL(DIS_INSUFFICIENT)` responses when downstream integrations are unavailable. Real adapters can replace `CapabilityService` when ready.
 
 ## Audit ledger
+Every orchestration attempt writes a hash-chained audit frame. Configure the ledger connection with `DATABASE_URL`. The service gracefully degrades if the database is unreachable, logging a warning while preserving refusal semantics. When a write fails, the HTTP response metadata includes `{ "ledgerWriteFailed": true }` so callers can surface temporary persistence gaps while the runtime remains deterministic.
+
+## Exec IDs & determinism
+Exec IDs are derived from a hash of the intent, payload, route, and optional `requestId`. Repeating a request with the same inputs produces identical identifiers and audit hashes, aligning with the deterministic guarantees from the manifest.
 Every orchestration attempt writes a hash-chained audit frame. Configure the ledger connection with `DATABASE_URL`. The service gracefully degrades if the database is unreachable, logging a warning while preserving refusal semantics.
 
 ## Exec IDs & determinism

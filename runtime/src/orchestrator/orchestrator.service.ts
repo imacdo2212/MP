@@ -87,6 +87,34 @@ export class OrchestratorService {
       });
 
       const consumedBudgets = this.clampConsumption(capabilityResult.consumedBudgets, grantedBudgets);
+      let responseMetadata = capabilityResult.metadata
+        ? { ...capabilityResult.metadata }
+        : undefined;
+
+      try {
+        await this.ledger.record({
+          execId,
+          intent,
+          route,
+          hopCount,
+          budgetsGranted: grantedBudgets,
+          budgetsConsumed: consumedBudgets,
+          terminationCode: capabilityResult.terminationCode,
+          metadata: {
+            ...capabilityResult.metadata,
+            requestId: request.requestId ?? null
+          }
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to persist audit frame for ${execId} (${intent} → ${route}): ${String(error)}`
+        );
+        if (responseMetadata) {
+          responseMetadata.ledgerWriteFailed = true;
+        } else {
+          responseMetadata = { ledgerWriteFailed: true };
+        }
+      }
 
       await this.ledger.record({
         execId,
@@ -112,11 +140,34 @@ export class OrchestratorService {
           granted: grantedBudgets,
           consumed: consumedBudgets
         },
+        metadata: responseMetadata
         metadata: capabilityResult.metadata
       };
     } catch (error) {
       const refusalCode = await this.resolveRefusalForError(error);
       this.logger.warn(`Execution failed for ${intent} → ${route}: ${String(error)}`);
+      let refusalMetadata: Record<string, unknown> | undefined;
+
+      try {
+        await this.ledger.record({
+          execId,
+          intent,
+          route,
+          hopCount,
+          budgetsGranted: grantedBudgets,
+          budgetsConsumed: {},
+          terminationCode: refusalCode,
+          metadata: {
+            error: error instanceof Error ? error.message : String(error),
+            requestId: request.requestId ?? null
+          }
+        });
+      } catch (ledgerError) {
+        this.logger.warn(
+          `Failed to persist refusal audit frame for ${execId} (${intent} → ${route}): ${String(ledgerError)}`
+        );
+        refusalMetadata = { ledgerWriteFailed: true };
+      }
 
       await this.ledger.record({
         execId,
@@ -144,6 +195,8 @@ export class OrchestratorService {
         budgets: {
           granted: grantedBudgets,
           consumed: {}
+        },
+        metadata: refusalMetadata
         }
       };
     }
@@ -166,6 +219,7 @@ export class OrchestratorService {
   }): Promise<OrchestratorResponse> {
     const execId = this.createExecId(request.intent ?? '', request.payload ?? {}, route, request.requestId);
 
+    let ledgerWriteFailed = false;
     try {
       await this.ledger.record({
         execId,
@@ -181,6 +235,11 @@ export class OrchestratorService {
         }
       });
     } catch (error) {
+      ledgerWriteFailed = true;
+      this.logger.warn(`Failed to persist refusal audit frame: ${String(error)}`);
+    }
+
+    const response: OrchestratorResponse = {
       this.logger.warn(`Failed to persist refusal audit frame: ${String(error)}`);
     }
 
@@ -198,6 +257,12 @@ export class OrchestratorService {
         consumed: {}
       }
     };
+
+    if (ledgerWriteFailed) {
+      response.metadata = { ledgerWriteFailed: true };
+    }
+
+    return response;
   }
 
   private applyCallerBudgets(

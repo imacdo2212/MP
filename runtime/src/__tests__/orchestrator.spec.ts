@@ -14,6 +14,16 @@ import { OrchestratorService } from '../orchestrator/orchestrator.service.js';
 
 class InMemoryAuditLedgerService {
   public readonly records: AuditRecord[] = [];
+  private readonly throwOnRecord: boolean;
+
+  constructor(options: { throwOnRecord?: boolean } = {}) {
+    this.throwOnRecord = options.throwOnRecord ?? false;
+  }
+
+  async record(record: AuditRecord): Promise<string> {
+    if (this.throwOnRecord) {
+      throw new Error('ledger unavailable');
+    }
 
   async record(record: AuditRecord): Promise<string> {
     this.records.push(record);
@@ -24,6 +34,9 @@ class InMemoryAuditLedgerService {
   async onModuleDestroy(): Promise<void> {}
 }
 
+async function createTestingContext(
+  options: { capabilityMode?: string; ledgerThrows?: boolean } = {}
+) {
 async function createTestingContext(options: { capabilityMode?: string } = {}) {
   if (options.capabilityMode) {
     process.env.CAPABILITY_MODE = options.capabilityMode;
@@ -31,6 +44,7 @@ async function createTestingContext(options: { capabilityMode?: string } = {}) {
     delete process.env.CAPABILITY_MODE;
   }
 
+  const auditStub = new InMemoryAuditLedgerService({ throwOnRecord: options.ledgerThrows });
   const auditStub = new InMemoryAuditLedgerService();
 
   const moduleRef = await Test.createTestingModule({
@@ -117,6 +131,35 @@ describe('OrchestratorService', () => {
     expect(response.terminationCode).toBe(expectedCode);
     expect(response.refusal?.code).toBe(expectedCode);
     expect(ctx.auditStub.records[0].terminationCode).toBe(expectedCode);
+  });
+
+  it('continues orchestration when the ledger write fails', async () => {
+    const ctx = await createTestingContext({ ledgerThrows: true });
+    activeApps.push(ctx.app);
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'Legal contract review'
+    });
+
+    expect(response.terminationCode).toBe('OK_PLACEHOLDER');
+    expect(response.metadata).toMatchObject({ ledgerWriteFailed: true });
+    expect(ctx.auditStub.records).toHaveLength(0);
+  });
+
+  it('still returns refusal metadata when capability fails and ledger is offline', async () => {
+    const ctx = await createTestingContext({ capabilityMode: 'disabled', ledgerThrows: true });
+    activeApps.push(ctx.app);
+
+    const manifest = await ctx.manifest.getManifest();
+    const expectedCode =
+      manifest.config.refusal_aliases.DIS_INSUFFICIENT ?? 'REFUSAL(DIS_INSUFFICIENT)';
+
+    const response = await ctx.orchestrator.execute({
+      intent: 'Legal contract review'
+    });
+
+    expect(response.terminationCode).toBe(expectedCode);
+    expect(response.metadata).toMatchObject({ ledgerWriteFailed: true });
   });
 });
 
