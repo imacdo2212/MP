@@ -6,6 +6,17 @@ import type {
   CapabilityInvocation,
   CapabilityResult
 } from './base.js';
+import {
+  COMPLIANCE_SCANNER_CAPABILITY,
+  COMPLIANCE_SCANNER_FIXTURE,
+  type ComplianceScannerCapabilityName
+} from './compliance-scanner.js';
+import { CapabilityModesConfig, CapabilityMode, resolveCapabilityMode } from './config.js';
+import {
+  LEGAL_SEARCH_CAPABILITY,
+  LEGAL_SEARCH_FIXTURE,
+  type LegalSearchCapabilityName
+} from './legal-search.js';
 
 interface FixturePayload {
   summary: string;
@@ -17,6 +28,8 @@ interface FixtureConfig {
   description: string;
 }
 
+type KnownCapabilityName = LegalSearchCapabilityName | ComplianceScannerCapabilityName;
+
 const FAILURE_ALIAS_MAP = {
   timeout: 'TOOL_TIMEOUT',
   failure: 'TOOL_FAIL',
@@ -25,12 +38,46 @@ const FAILURE_ALIAS_MAP = {
   drift: 'TOOL_DRIFT'
 } as const;
 
+const CAPABILITY_FIXTURES: Record<KnownCapabilityName, FixtureConfig> = {
+  [LEGAL_SEARCH_CAPABILITY]: {
+    description: 'Static search over curated legal holdings',
+    success: {
+      summary: LEGAL_SEARCH_FIXTURE.summary,
+      data: LEGAL_SEARCH_FIXTURE.data
+    }
+  },
+  [COMPLIANCE_SCANNER_CAPABILITY]: {
+    description: 'Placeholder compliance risk scan',
+    success: {
+      summary: COMPLIANCE_SCANNER_FIXTURE.summary,
+      data: COMPLIANCE_SCANNER_FIXTURE.data
+    }
+  }
+};
+
+function createDisabledAdapter(
+  name: KnownCapabilityName,
+  refusalAliases: RefusalAliases
+): CapabilityAdapter {
+  return async () => ({
+    ok: false,
+    refusal: {
+      alias: 'DIS_INSUFFICIENT',
+      code: resolveRefusalCode('DIS_INSUFFICIENT', refusalAliases),
+      reason: `${name} capability disabled via configuration`
+    }
+  });
+}
+
 function createFixtureAdapter(
-  name: string,
+  name: KnownCapabilityName,
   fixture: FixtureConfig,
   refusalAliases: RefusalAliases
 ): CapabilityAdapter {
-  return async (invocation: CapabilityInvocation, context: RequestContext): Promise<CapabilityResult> => {
+  return async (
+    invocation: CapabilityInvocation,
+    context: RequestContext
+  ): Promise<CapabilityResult> => {
     const scenario = invocation.scenario ?? 'success';
     if (scenario === 'success') {
       return {
@@ -38,7 +85,10 @@ function createFixtureAdapter(
         data: {
           capability: name,
           route: context.route,
-          ...fixture.success
+          description: fixture.description,
+          summary: fixture.success.summary,
+          payloadEcho: invocation.payload ?? null,
+          ...fixture.success.data
         }
       };
     }
@@ -57,42 +107,58 @@ function createFixtureAdapter(
   };
 }
 
+export interface CapabilityRegistryOptions {
+  modes?: CapabilityModesConfig<KnownCapabilityName>;
+  overrides?: Partial<Record<KnownCapabilityName, CapabilityAdapter>>;
+}
+
 export interface CapabilityRegistry {
   invoke(name: string, invocation: CapabilityInvocation, context: RequestContext): Promise<CapabilityResult>;
   knownCapabilities(): string[];
 }
 
-export function buildCapabilityRegistry(refusalAliases: RefusalAliases): CapabilityRegistry {
-  const fixtures: Record<string, FixtureConfig> = {
-    legalSearch: {
-      description: 'Static search over curated legal holdings',
-      success: {
-        summary: 'Found 2 precedent matches with relevance ≥0.84',
-        data: {
-          precedents: [
-            { id: 'case-1984-01', title: 'Rumpole v. Apex', score: 0.91 },
-            { id: 'case-1996-18', title: 'MPA Holdings v. Contoso', score: 0.84 }
-          ]
-        }
-      }
-    },
-    complianceScanner: {
-      description: 'Placeholder compliance risk scan',
-      success: {
-        summary: 'Risk posture nominal with 1 advisory flag',
-        data: {
-          advisories: [{ id: 'adv-14', severity: 'medium', detail: 'Renew SOC2 evidence within 30 days' }]
-        }
-      }
-    }
-  };
+function resolveMode(
+  name: KnownCapabilityName,
+  options?: CapabilityRegistryOptions
+): CapabilityMode {
+  const explicit = options?.modes?.[name];
+  return resolveCapabilityMode(name, explicit);
+}
 
-  const adapters: Record<string, CapabilityAdapter> = Object.fromEntries(
-    Object.entries(fixtures).map(([name, fixture]) => [name, createFixtureAdapter(name, fixture, refusalAliases)])
-  );
+export function buildCapabilityRegistry(
+  refusalAliases: RefusalAliases,
+  options: CapabilityRegistryOptions = {}
+): CapabilityRegistry {
+  const adapters: Record<string, CapabilityAdapter> = {};
+
+  (Object.keys(CAPABILITY_FIXTURES) as KnownCapabilityName[]).forEach((name) => {
+    const override = options.overrides?.[name];
+    if (override) {
+      adapters[name] = override;
+      return;
+    }
+
+    const mode = resolveMode(name, options);
+    if (mode === 'disabled') {
+      adapters[name] = createDisabledAdapter(name, refusalAliases);
+      return;
+    }
+
+    if (mode === 'live') {
+      throw new Error(
+        `Capability "${name}" is configured for live mode but no adapter override was provided.`
+      );
+    }
+
+    adapters[name] = createFixtureAdapter(name, CAPABILITY_FIXTURES[name], refusalAliases);
+  });
 
   return {
-    async invoke(name: string, invocation: CapabilityInvocation, context: RequestContext): Promise<CapabilityResult> {
+    async invoke(
+      name: string,
+      invocation: CapabilityInvocation,
+      context: RequestContext
+    ): Promise<CapabilityResult> {
       const adapter = adapters[name];
       if (!adapter) {
         const alias = 'DIS_INSUFFICIENT';

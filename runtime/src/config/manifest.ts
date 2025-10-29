@@ -102,6 +102,8 @@ export interface ManifestConfig {
   getIntentRoute: (intent: string) => string;
 }
 
+export const MANIFEST_CONFIG_KEY = 'manifestConfig';
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

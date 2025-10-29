@@ -43,7 +43,23 @@ The runtime specifications expect append-only, hash-chained ledgers that record 
    Adapt the payload/evidence columns if you store the snapshot fields denormalised.
 4. **Record migrations** – run the migration before executing the runtime so audit writes succeed. Subsequent schema changes should append new migrations; never mutate history because the ledgers are append-only by design.【F:Education/FLT.md†L30-L78】【F:Additionals/puppy_taxonomy_reference.md†L101-L105】
 
-## 4. Placeholder adapter feature flags
+## 4. Capability adapter modes
+
+The capability registry ships with deterministic stub adapters so you can exercise
+tooling flows without reaching external services. Each capability consults an
+environment toggle with the pattern `CAPABILITY_<NAME>_MODE` where `<NAME>` is the
+uppercased capability identifier (non-alphanumeric characters are converted to `_`).
+
+- `CAPABILITY_LEGAL_SEARCH_MODE`
+- `CAPABILITY_COMPLIANCE_SCANNER_MODE`
+
+Supported values are `stub` (default), `disabled`, and `live`. When set to
+`disabled`, the registry returns a `DIS_INSUFFICIENT` refusal with the manifest’s
+mapped code; `live` requires you to provide a concrete adapter override when
+bootstrapping the registry. Future integrations can supply real adapters through
+the `buildCapabilityRegistry` options object.【F:runtime/src/capabilities/config.ts†L1-L24】【F:runtime/src/capabilities/registry.ts†L92-L144】
+
+## 5. Placeholder adapter feature flags
 
 The Scholar Essay Writer substrate exposes policy locks that gate “placeholder” adapters for tables and figures. Toggle these flags via your configuration layer before invoking draft routes:
 
@@ -53,7 +69,7 @@ The Scholar Essay Writer substrate exposes policy locks that gate “placeholder
 
 Quality gates check the relevant `ALLOW_*` settings before generation, so you can reliably test both success and refusal paths by toggling the flags in your manifest or runtime overrides.【F:Substrates/MPA/Scholar Essay Writer.md†L372-L439】
 
-## 5. Generating ExecIDs and verifying ledger entries
+## 6. Generating ExecIDs and verifying ledger entries
 
 1. **ExecID generation** – both the orchestrator and downstream substrates define the ExecID as a deterministic hash over `{input, budgets, route}`. A minimal Node example is:
    ```ts
