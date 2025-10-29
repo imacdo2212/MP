@@ -10,6 +10,7 @@
     "test": "node --loader ts-node/esm --test src/config/__tests__/module.test.ts"
   },
   "dependencies": {
+    "fastify": "^4.27.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
