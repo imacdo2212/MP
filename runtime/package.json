@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "start": "node --loader ts-node/esm src/index.ts",
-    "check": "tsc --noEmit --project tsconfig.json"
+    "check": "tsc --noEmit --project tsconfig.json",
+    "test": "node --loader ts-node/esm --test src/config/__tests__/module.test.ts"
   },
   "dependencies": {
     "zod": "^3.23.8"

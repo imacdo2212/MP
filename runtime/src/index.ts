@@ -1,12 +1,12 @@
-import { loadManifestConfig } from './config/manifest.js';
+import { ConfigModule } from './config/module.js';
 
 async function main() {
-  const config = await loadManifestConfig();
+  await ConfigModule.bootstrap();
 
-  const rumpoleBudgets = config.resolveBudgets('mpa.rumpole');
-  const toolBudgets = config.resolveBudgets('mpt.query');
-  const legalRoute = config.getIntentRoute('legal contract review');
-  const defaultRoute = config.getIntentRoute('unknown request');
+  const rumpoleBudgets = ConfigModule.resolveBudgets('mpa.rumpole');
+  const toolBudgets = ConfigModule.resolveBudgets('mpt.query');
+  const legalRoute = ConfigModule.getIntentRoute('legal contract review');
+  const defaultRoute = ConfigModule.getIntentRoute('unknown request');
 
   console.log('Resolved budgets for mpa.rumpole:', rumpoleBudgets);
   console.log('Resolved budgets for mpt.query:', toolBudgets);
