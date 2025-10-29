@@ -7,6 +7,10 @@
     "build": "tsc --project tsconfig.json",
     "start": "node --loader ts-node/esm src/index.ts",
     "check": "tsc --noEmit --project tsconfig.json",
+    "migrate": "node --loader ts-node/esm src/db/migrate.ts"
+  },
+  "dependencies": {
+    "pg": "^8.11.5",
     "test": "npm run build && node --test ./lib/__tests__/*.test.js"
     "test": "node --loader ts-node/esm --test src/config/__tests__/module.test.ts"
   },
@@ -16,6 +20,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
+    "@types/pg": "^8.10.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   }
