@@ -1,20 +1,15 @@
-import { loadManifestConfig } from './config/manifest.js';
+import { createApp } from './server/app.js';
 
 async function main() {
-  const config = await loadManifestConfig();
+  const app = await createApp();
+  const port = Number(process.env.PORT ?? 3000);
+  const host = '0.0.0.0';
 
-  const rumpoleBudgets = config.resolveBudgets('mpa.rumpole');
-  const toolBudgets = config.resolveBudgets('mpt.query');
-  const legalRoute = config.getIntentRoute('legal contract review');
-  const defaultRoute = config.getIntentRoute('unknown request');
-
-  console.log('Resolved budgets for mpa.rumpole:', rumpoleBudgets);
-  console.log('Resolved budgets for mpt.query:', toolBudgets);
-  console.log('Intent "legal contract review" routes to:', legalRoute);
-  console.log('Intent "unknown request" routes to:', defaultRoute);
+  await app.listen({ port, host });
+  app.log.info(`Ingress service listening on http://${host}:${port}`);
 }
 
 main().catch((error) => {
-  console.error('Failed to load manifest config:', error);
+  console.error('Failed to start ingress service:', error);
   process.exitCode = 1;
 });
