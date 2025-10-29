@@ -1,45 +1,104 @@
-# MP Runtime Developer Guide
+# MP Runtime Ingress & Capability Pipeline
 
-This runtime package provides a TypeScript entry point for working with the unified Apex manifest and for exercising compliance guardrails locally. The guide below explains how to prepare your environment, use the available npm scripts, run database migrations for the audit ledger, and validate ExecID plus ledger behaviours during development.
+This package ships a Fastify ingress service plus capability stubs so contributors can exercise the Apex manifest locally while
+retaining the deterministic planning guarantees that the production stack enforces. The notes below cover the NestJS-flavoured
+commands exposed through the npm scripts, database setup, runtime configuration, and a quick-start flow that proves the
+capabilities and refusal codes behave as expected.
 
-## 1. Environment setup
+## Prerequisites & Environment
 
-1. **Install Node.js 20 LTS** – the type definitions pin to the Node 20 API surface, so use a Node 20 toolchain (e.g. `nvm install 20 && nvm use 20`).【F:runtime/package.json†L15-L18】
-2. **Install dependencies** – from the repository root run:
+- **Node.js 20 LTS** – the TypeScript configuration and Node type definitions are pinned to the Node 20 API surface. Use a tool
+  such as `nvm use 20` before installing dependencies.【F:runtime/package.json†L2-L25】
+- **Environment variables**
+  - `DATABASE_URL` – PostgreSQL connection string used by the connection pool; defaults to
+    `postgresql://localhost:5432/mp_runtime` if not provided.【F:runtime/src/db/client.ts†L1-L13】
+  - `PORT` – optional override for the ingress HTTP listener; defaults to `3000` when omitted.【F:runtime/src/index.ts†L12-L21】
+  - Consider exporting these in a `.env` file or shell profile before running the service.
+- **Manifest data** – the ingress bootstraps the manifest through `loadManifestConfig`, which reads the unified manifest at
+  runtime so routing and refusal aliases reflect the latest policy state.【F:runtime/src/server/app.ts†L1-L26】
+
+## Install & NestJS-style commands
+
+The npm scripts mirror the usual NestJS workflow even though the service runs on Fastify internally:
+
+| Command | Purpose |
+| --- | --- |
+| `npm run start` | Equivalent to `nest start`: launches the Fastify ingress service with logging enabled.【F:runtime/package.json†L6-L10】【F:runtime/src/server/app.ts†L12-L26】 |
+| `npm run build` | Equivalent to `nest build`: compiles TypeScript to JavaScript via `tsc` for production deployments.【F:runtime/package.json†L6-L8】 |
+| `npm run check` | Equivalent to `nest lint`/`nest start --check`: performs a type-only compilation to validate the codebase without emitting artifacts.【F:runtime/package.json†L6-L9】 |
+| `npm run migrate` | Runs the local migration runner to provision the audit ledger tables before the API writes entries, similar to `nest build && prisma migrate` flows.【F:runtime/package.json†L6-L10】【F:runtime/src/db/migrate.ts†L1-L47】 |
+
+Install dependencies once with:
+
+```bash
+cd runtime
+npm install
+```
+
+## Database migrations
+
+The embedded migration runner (`npm run migrate`) provisions an `audit_ledger` table sized for deterministic ExecID chains:
+
+- The schema enforces unique `exec_id` and `record_hash` columns while storing granted/consumed budgets, termination codes, and
+  optional metadata blobs.【F:runtime/src/db/migrate.ts†L3-L18】
+- Migrations execute inside a single transaction; failures trigger an automatic rollback before the process exits with a
+  non-zero status.【F:runtime/src/db/migrate.ts†L22-L44】
+- Indexes on `route` and `created_at` assist in replaying audit trails during debugging sessions.【F:runtime/src/db/migrate.ts†L18-L19】
+- When running the command against a remote database, make sure `DATABASE_URL` points to the correct instance so the audit
+  writer can append records afterwards.【F:runtime/src/db/client.ts†L6-L22】
+
+## Capability stubs & refusal codes
+
+The ingress ships with two deterministic capability fixtures – `legalSearch` and `complianceScanner` – defined in the capability
+registry. Each fixture returns a canned payload on the happy path and can emit refusal aliases for negative scenarios.【F:runtime/src/capabilities/registry.ts†L20-L115】
+
+- **Enabling stubs** – include capability invocations in the `/ingress` request body. Each invocation can optionally set a
+  `scenario` (for example `'success'`, `'timeout'`, `'failure'`, `'unsafe'`, `'schema_miss'`, or `'drift'`) to drive the desired
+  outcome.【F:runtime/src/capabilities/base.ts†L1-L26】【F:runtime/src/server/routes/ingress.ts†L69-L120】
+- **Disabling stubs** – omit a capability from the request to skip its execution, or remove/comment out the fixture entry in
+  `buildCapabilityRegistry` if you want to turn an adapter off globally for a test run. Missing adapters resolve to the
+  `DIS_INSUFFICIENT` alias so the audit log still records the refusal deterministically.【F:runtime/src/capabilities/registry.ts†L66-L107】
+- **Interpreting refusal codes** – refusal aliases flow through `resolveRefusalCode`, which normalises strings like
+  `REFUSAL(BOUND_DEPTH)` and then maps them to manifest-defined codes such as `BOUND_DEPTH` or `BOUND_*`. When an alias is absent,
+  the trimmed token is returned so debugging always surfaces a value.【F:runtime/src/shared/refusals.ts†L1-L18】 The manifest’s
+  `refusal_aliases` block documents the canonical mappings (for example `TOOL_TIMEOUT → BOUND_TIME`, `TOOL_FAIL → FRAGILITY`).【F:Additionals/Manifest.json†L23-L61】
+
+Audit events summarise the capability results and final termination status – success responses include bounded budgets whereas
+refusals capture the alias, resolved code, and diagnostics payload to help trace policy enforcement.【F:runtime/src/server/routes/ingress.ts†L94-L120】【F:runtime/src/server/request-context.ts†L76-L135】 Exec IDs are hashed from the route,
+hops, budgets, and payload so identical requests always evaluate to the same identifier, making comparisons across runs
+straightforward.【F:runtime/src/server/request-context.ts†L65-L99】【F:runtime/src/services/exec-id.ts†L1-L14】
+
+## Quick-start validation flow
+
+1. **Export configuration**
+   ```bash
+   export DATABASE_URL="postgresql://localhost:5432/mp_runtime"
+   export PORT=3000  # optional override
+   ```
+2. **Install packages**
    ```bash
    cd runtime
    npm install
    ```
-   This pulls the TypeScript, ts-node, and Zod dependencies required by the config loader and demo entry point.【F:runtime/package.json†L6-L17】
-3. **Manifest data** – `src/config/manifest.ts` loads `Additionals/Manifest.json` by default. Keep that file in sync with any contract changes, or pass an alternate path into `loadManifestConfig` if you build custom tooling around it.【F:runtime/src/config/manifest.ts†L117-L201】【F:runtime/src/config/manifest.ts†L206-L234】【F:Additionals/Manifest.json†L1-L84】
-
-## 2. Available npm scripts
-
-| Script | Purpose |
-| ------ | ------- |
-| `npm run start` | Launches the sample runtime that loads the manifest and prints resolved budgets plus routes for a few example intents.【F:runtime/package.json†L6-L9】【F:runtime/src/index.ts†L1-L20】 |
-| `npm run build` | Emits compiled JavaScript by running `tsc` against `tsconfig.json` so you can distribute artifacts or run without ts-node.【F:runtime/package.json†L6-L8】 |
-| `npm run check` | Type-checks the project without emitting output, useful for CI or pre-commit validation.【F:runtime/package.json†L6-L9】 |
-
-## 3. Database migrations for the audit ledger
-
-The runtime specifications expect append-only, hash-chained ledgers that record planning and compliance artefacts. When bringing up a local environment you can bootstrap a relational table using the schema elements provided in the substrates:
-
-1. **Plan your columns** using the `ledger_template` example – the planning ledger records `event`, a nested `planning_snapshot`, and evidence fields such as `cfu_mean` and `errors_consecutive_max`. Reflect these fields (or JSON blobs containing them) in your table definition.【F:Substrates/MPA/alcuin_reference.json†L400-L459】
-2. **Add hash-chain fields** – every ledger record must include `hash` and `prev_hash` columns so you can enforce `prev_hash == prior.hash` during migrations and verification.【F:Substrates/MPA/Rumpole.md†L140-L146】
-3. **Migration example** – create a migration in your preferred tool (Prisma, Knex, plain SQL). For PostgreSQL the essential shape is:
-   ```sql
-   CREATE TABLE audit_ledger (
-     id BIGSERIAL PRIMARY KEY,
-     session_id TEXT NOT NULL,
-     event TEXT NOT NULL,
-     payload JSONB NOT NULL,
-     evidence JSONB,
-     hash TEXT NOT NULL,
-     prev_hash TEXT,
-     created_at TIMESTAMPTZ DEFAULT now()
-   );
+3. **Provision the ledger schema**
+   ```bash
+   npm run migrate
    ```
+4. **Start the ingress API**
+   ```bash
+   npm run start
+   ```
+   The service listens on the configured `PORT` and logs each audit frame as requests arrive.【F:runtime/src/index.ts†L12-L24】【F:runtime/src/server/app.ts†L12-L26】
+5. **Call an intent with a deterministic capability**
+   ```bash
+   curl -s http://localhost:${PORT:-3000}/ingress \
+     -H 'content-type: application/json' \
+     -d '{
+           "intent": "legal contract review",
+           "capabilities": [
+             { "name": "legalSearch", "scenario": "success" }
+           ]
+         }' | jq
    Adapt the payload/evidence columns if you store the snapshot fields denormalised.
 4. **Record migrations** – run the migration before executing the runtime so audit writes succeed. Subsequent schema changes should append new migrations; never mutate history because the ledgers are append-only by design.【F:Education/FLT.md†L30-L78】【F:Additionals/puppy_taxonomy_reference.md†L101-L105】
 
@@ -80,10 +139,10 @@ Quality gates check the relevant `ALLOW_*` settings before generation, so you ca
      return createHash('sha256').update(payload).digest('hex');
    }
    ```
-   Use this helper in tests to assert that identical calls produce identical ExecIDs.【F:MPA/MPA.md†L39-L44】【F:Substrates/MPA/Scholar Essay Writer.md†L336-L341】
-2. **Ledger append verification** – after computing ExecIDs, append audit rows to your ledger service and confirm:
-   - The new record’s `prev_hash` equals the previous row’s `hash`, maintaining the hash chain.【F:Substrates/MPA/Rumpole.md†L140-L146】
-   - The audit payload captures the planning snapshot/evidence fields described in the templates so downstream reviewers can reconstruct decisions.【F:Substrates/MPA/alcuin_reference.json†L400-L459】
-   - Ledger operations remain append-only; do not rewrite prior rows, consistent with the AuditService contract.【F:Education/FLT.md†L30-L78】
+   The response contains a stable `execId`, resolved route, bounded budgets, and an array of capability results. Re-running the
+   command emits the same `execId` and audit payload, proving the pipeline’s determinism for the given manifest state.【F:runtime/src/server/routes/ingress.ts†L53-L120】【F:runtime/src/server/request-context.ts†L65-L135】 To test refusal paths, repeat the
+   request with `"scenario": "timeout"` (or any other failure mode) and observe the manifest-specific refusal code in the reply
+   as well as the audit log entry.【F:runtime/src/capabilities/registry.ts†L20-L107】【F:Additionals/Manifest.json†L49-L60】
 
-With these checks in place you can run `npm run start`, capture emitted audits, and validate both ExecID determinism and ledger continuity before promoting any adapter or manifest changes.
+Following this sequence ensures every contributor can initialise the database, run the ingress service, and validate both
+successful and refusal outcomes locally before promoting capability or manifest changes.
