@@ -1,4 +1,5 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import type { BudgetConsumption, BudgetSnapshot } from '../db/ledger.js';
 
@@ -64,6 +65,14 @@ export class CapabilityService {
       if (adapter) {
         return adapter.execute(context);
       }
+@Injectable()
+export class CapabilityService {
+  private readonly placeholdersEnabled =
+    (process.env.CAPABILITY_MODE ?? 'placeholder') !== 'disabled';
+
+  async execute(context: CapabilityContext): Promise<CapabilityResult> {
+    if (!this.placeholdersEnabled) {
+      throw new CapabilityUnavailableError('Capability placeholders are disabled.');
     }
 
     return this.runPlaceholder(context);
@@ -96,6 +105,7 @@ export class CapabilityService {
       metadata: {
         placeholder: true,
         adapter: 'placeholder'
+        placeholder: true
       }
     };
   }

@@ -38,6 +38,7 @@ const budgetsDefaultsSchema: z.ZodType<BudgetDefaults> = z.object({
 });
 
 export const budgetOverridesSchema = z.object({
+const budgetOverridesSchema = z.object({
   tokens_prompt_max: budgetNumberSchema.optional(),
   tokens_output_max: budgetNumberSchema.optional(),
   time_ms: budgetNumberSchema.optional(),
@@ -102,6 +103,8 @@ export interface ManifestConfig {
   getIntentRoute: (intent: string) => string;
 }
 
+export const MANIFEST_CONFIG_KEY = 'manifestConfig';
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -145,6 +148,11 @@ function mergeBudgets(
   overriddenKeys: Set<BudgetKey>
 ): EffectiveBudgets {
   const merged: Record<BudgetKey, BudgetValue> = { ...base };
+  defaults: BudgetDefaults,
+  overrides: BudgetOverrides,
+  clamp: Manifest['config']['budget_policy']['route_profile_clamp']
+): EffectiveBudgets {
+  const merged: Record<BudgetKey, BudgetValue> = { ...defaults };
 
   for (const key of Object.keys(overrides) as BudgetKey[]) {
     const value = overrides[key];
@@ -163,6 +171,9 @@ function mergeBudgets(
     } else {
       merged[key] = value as BudgetValue;
       overriddenKeys.add(key);
+      merged[key] = applyClamp(current, value, clamp) as BudgetValue;
+    } else {
+      merged[key] = value as BudgetValue;
     }
   }
 
@@ -221,6 +232,7 @@ export async function loadManifestConfig(
   manifestPath?: string
 ): Promise<ManifestConfig> {
   const manifest = await loadManifest(manifestPath);
+export function createManifestConfig(manifest: Manifest): ManifestConfig {
   const routeBudgets = buildRouteBudgetTable(manifest);
   const defaults = manifest.config.budgets_defaults;
   const clamp = manifest.config.budget_policy.route_profile_clamp;
@@ -234,6 +246,10 @@ export async function loadManifestConfig(
         .filter(({ matcher }) => matcher.test(routeId))
         .reduce<EffectiveBudgets>(
           (acc, { overrides }) => mergeBudgets(acc, overrides, clamp, overriddenKeys),
+      return routeBudgets
+        .filter(({ matcher }) => matcher.test(routeId))
+        .reduce<EffectiveBudgets>(
+          (acc, { overrides }) => mergeBudgets(acc, overrides, clamp),
           { ...defaults }
         );
     },
@@ -241,4 +257,11 @@ export async function loadManifestConfig(
       return selectIntentRoute(manifest, intent);
     }
   };
+}
+
+export async function loadManifestConfig(
+  manifestPath?: string
+): Promise<ManifestConfig> {
+  const manifest = await loadManifest(manifestPath);
+  return createManifestConfig(manifest);
 }

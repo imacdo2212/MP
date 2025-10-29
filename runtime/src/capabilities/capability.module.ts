@@ -7,6 +7,7 @@ import { EngineeringCapabilityAdapter } from './engineering.adapter.js';
 import { RumpoleCapabilityAdapter } from './rumpole.adapter.js';
 import { ScienceCapabilityAdapter } from './science.adapter.js';
 import { ToolkitCapabilityAdapter } from './toolkit.adapter.js';
+import { RumpoleCapabilityAdapter } from './rumpole.adapter.js';
 
 @Module({
   providers: [
@@ -37,6 +38,17 @@ import { ToolkitCapabilityAdapter } from './toolkit.adapter.js';
       ]
     }
   ],
+    RumpoleCapabilityAdapter,
+    {
+      provide: CAPABILITY_ADAPTERS,
+      useFactory: (rumpole: RumpoleCapabilityAdapter) => [rumpole],
+      inject: [RumpoleCapabilityAdapter]
+    }
+  ],
+import { CapabilityService } from './capability.service.js';
+
+@Module({
+  providers: [CapabilityService],
   exports: [CapabilityService]
 })
 export class CapabilityModule {}
