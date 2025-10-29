@@ -7,6 +7,10 @@ export default defineConfig({
     coverage: {
       reporter: ['text', 'html'],
       reportsDirectory: 'coverage'
+    include: ['src/__tests__/**/*.spec.ts'],
+    coverage: {
+      reporter: ['text', 'html'],
+      enabled: false
     }
   }
 });

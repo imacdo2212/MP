@@ -32,6 +32,8 @@ class InMemoryAuditLedgerService {
     if (this.throwOnRecord) {
       throw new Error('ledger unavailable');
     }
+
+  async record(record: AuditRecord): Promise<string> {
     this.records.push(record);
     return `hash_${this.records.length}`;
   }
@@ -43,6 +45,7 @@ class InMemoryAuditLedgerService {
 async function createTestingContext(
   options: { capabilityMode?: string; ledgerThrows?: boolean } = {}
 ) {
+async function createTestingContext(options: { capabilityMode?: string } = {}) {
   if (options.capabilityMode) {
     process.env.CAPABILITY_MODE = options.capabilityMode;
   } else {
@@ -50,6 +53,7 @@ async function createTestingContext(
   }
 
   const auditStub = new InMemoryAuditLedgerService({ throwOnRecord: options.ledgerThrows });
+  const auditStub = new InMemoryAuditLedgerService();
 
   const moduleRef = await Test.createTestingModule({
     imports: [OrchestratorModule]
@@ -90,6 +94,7 @@ describe('OrchestratorService', () => {
     const response = await ctx.orchestrator.execute({
       intent: 'Legal contract review',
       payload: { document: SAMPLE_CONTRACT },
+      payload: { document: 'agreement' },
       callerBudgets
     });
 
@@ -99,6 +104,9 @@ describe('OrchestratorService', () => {
     expect(response.metadata).toMatchObject({ adapter: 'rumpole', placeholder: false });
     expect(ctx.auditStub.records).toHaveLength(1);
     expect(ctx.auditStub.records[0].terminationCode).toBe('OK_RUMPOLE_ANALYZED');
+    expect(response.terminationCode).toBe('OK_PLACEHOLDER');
+    expect(ctx.auditStub.records).toHaveLength(1);
+    expect(ctx.auditStub.records[0].terminationCode).toBe('OK_PLACEHOLDER');
   });
 
   it('enforces hop bounds with refusal', async () => {
@@ -211,6 +219,12 @@ describe('OrchestratorService', () => {
     expect(response.refusal?.code).toBe(expectedCode);
     expect(response.refusal?.reason).toContain('requestId');
     expect(ctx.auditStub.records).toHaveLength(1);
+      intent: 'Legal contract review'
+    });
+
+    expect(response.terminationCode).toBe('OK_PLACEHOLDER');
+    expect(response.metadata).toMatchObject({ ledgerWriteFailed: true });
+    expect(ctx.auditStub.records).toHaveLength(0);
   });
 
   it('still returns refusal metadata when capability fails and ledger is offline', async () => {
@@ -267,6 +281,7 @@ describe('Orchestrator HTTP ingress', () => {
       .send({
         intent: 'Legal contract review',
         payload: { document: SAMPLE_CONTRACT }
+        payload: { document: 'nda' }
       })
       .expect(200);
 
@@ -275,6 +290,8 @@ describe('Orchestrator HTTP ingress', () => {
       terminationCode: 'OK_RUMPOLE_ANALYZED'
     });
     expect(response.body.output.summary).toBeDefined();
+      terminationCode: 'OK_PLACEHOLDER'
+    });
     expect(ctx.auditStub.records).toHaveLength(1);
   });
 });
