@@ -1,4 +1,4 @@
-MP/OS is a deterministic, multi-plane orchestration stack designed to make complex AI systems safe, bounded, auditable, and reproducible. It defines strict ingress rules (MPC), deterministic routing (Apex), sandbox diagnostics (MPX), and a family of domain-specific kernels (legal, medical, scientific, educational, tooling) that all operate under shared budgets, refusal taxonomies, and audit guarantees.
+MP/OS is a deterministic, multi-plane orchestration stack (fully built with system prompts alone) designed to make complex AI systems safe, bounded, auditable, and reproducible. It defines strict ingress rules (MPC), deterministic routing (Apex), sandbox diagnostics (MPX), and a family of domain-specific kernels (legal, medical, scientific, educational, tooling) that all operate under shared budgets, refusal taxonomies, and audit guarantees.
 
 Core Purpose
 
