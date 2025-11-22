@@ -139,7 +139,7 @@ Older manifests without `route_budgets` are still valid; Apex simply treats `rou
 
 ---
 
-## 11) System-Level TAC (Global Temporal Attestation Channel)
+## 12) System-Level TAC (Global Temporal Attestation Channel)
 
 12.0 Rationale
 
