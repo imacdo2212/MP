@@ -3,7 +3,6 @@
   "version": "1.1.0",
   "generated": "2025-10-22T00:00:00Z",
   "description": "Unified manifest with explicit route budget clamps and plane-specific profiles for Apex routing.",
-
   "imports": [
     "MPC@1.x",
     "Apex@merged",
@@ -19,7 +18,6 @@
     "DfE@1.1",
     "MPS@1.2"
   ],
-
   "config": {
     "budgets_defaults": {
       "tokens_prompt_max": 4000,
@@ -60,7 +58,6 @@
       "DIS_INSUFFICIENT": "DIS_INSUFFICIENT"
     }
   },
-
   "route_budgets": {
     "mpa.rumpole": {
       "tokens_output_max": 1800,
@@ -85,7 +82,6 @@
       "depth_max": 4
     }
   },
-
   "routing": {
     "policy": "Apex_only_routes_to_top_level_planes; MPs_own_subrouting",
     "intent_map": {
@@ -102,21 +98,21 @@
       "on_exceed": "REFUSAL(BOUND_DEPTH)"
     }
   },
-
   "acceptance_tests": {
     "Apex-T2": "Caller narrows respected; overflow triggers bounded-result path.",
     "Apex-T3": "Depth > hop_bounds triggers REFUSAL(BOUND_DEPTH).",
     "Apex-T4": "Plane-specific route budgets applied (Rumpole=1800, MPT=6/3).",
     "Apex-T5": "Audit chain intact under route_profile_clamp=min policy."
-  }
-}
-
-"tac_policy": {
-  "enabled": true,
-  "allow_caller_invoke": true,
-  "authorized_invokers": ["admin-role","governance-id"],
-  "default_flags": ["response-gate"],
-  "max_duration_s": 31536000000, // 1000 years safe default, null=unbounded
-  "key_rotation_policy": {"rotation_interval_days": 365, "retention_years": 25}
+  },
+  "tac_policy": {
+    "enabled": true,
+    "allow_caller_invoke": true,
+    "authorized_invokers": ["admin-role", "governance-id"],
+    "default_flags": ["response-gate"],
+    "max_duration_s": 31536000000,
+    "key_rotation_policy": {
+      "rotation_interval_days": 365,
+      "retention_years": 25
+    }
   }
 }
