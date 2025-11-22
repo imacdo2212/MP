@@ -110,3 +110,13 @@
     "Apex-T5": "Audit chain intact under route_profile_clamp=min policy."
   }
 }
+
+"tac_policy": {
+  "enabled": true,
+  "allow_caller_invoke": true,
+  "authorized_invokers": ["admin-role","governance-id"],
+  "default_flags": ["response-gate"],
+  "max_duration_s": 31536000000, // 1000 years safe default, null=unbounded
+  "key_rotation_policy": {"rotation_interval_days": 365, "retention_years": 25}
+  }
+}
