@@ -139,7 +139,8 @@ Older manifests without `route_budgets` are still valid; Apex simply treats `rou
 
 ---
 
-12. System-Level TAC (Global Temporal Attestation Channel)
+## 11) System-Level TAC (Global Temporal Attestation Channel)
+
 12.0 Rationale
 
 Apex is the manifest-driven orchestration layer and is the natural place to own global temporal authority:
