@@ -159,22 +159,7 @@ Platform enforcement: All planes treat Apex-issued TACs as authoritative for loc
 
 Auditable: Every global TAC and lock operation is recorded in the audit spine emitted by Apex (and mirrored into plane audits).
 
-12.2 Manifest additions (manifest.json)
-
-Add a tac_policy section to manifest.json:
-
-"tac_policy": {
-  "enabled": true,
-  "allow_caller_invoke": true,
-  "authorized_invokers": ["admin-role","governance-id"],
-  "default_flags": ["response-gate"],
-  "max_duration_s": 31536000000, // 1000 years safe default, null=unbounded
-  "key_rotation_policy": {"rotation_interval_days": 365, "retention_years": 25}
-}
-
-Notes: allow_caller_invoke=false disables user/controller-issued global locks; otherwise invocations must be authorized via authorized_invokers.
-
-12.3 API — Issuing a Global TAC / Lock
+12.4 API — Issuing a Global TAC / Lock
 
 Apex exposes an administrative API (authenticated + auditable). Example endpoints (Apex is authoritative; callers must authenticate & be allowed by manifest):
 
@@ -198,7 +183,7 @@ Response (200):
   "signed_by": "apex-keeper-01",
   "audit_entry_id": "exec-..."
 }
-12.4 Authorization & Invocation Rules
+12.5 Authorization & Invocation Rules
 
 Authorized invokers only: Apex verifies caller_id against manifest.tac_policy.authorized_invokers and additional ACLs if configured in config.acls.
 
@@ -271,20 +256,6 @@ integrity policy for algorithm migration
 Global TACs are part of the exec hash chain and must be included in exec_id derivation so that same inputs + same TACs → same outputs.
 
 For replay, verifiers must fetch historic key snapshots and the Apex audit spine.
-
-12.12 Backwards Compatibility
-
-Planes that do not understand Apex global TACs must treat incoming TACs as audit-only and log a warning. Manifest tac_policy can include a compatibility_mode flag to control behavior.
-
-Example Interaction (Full)
-
-Admin calls POST /apex/tac/issue with duration_s = 4000 years and flags=[response-gate].
-
-Apex authorizes, issues TAC, records lock in audit, and publishes to planes.
-
-Plane MPS sees active lock; its in-file LOCKs that intersect the global scope are considered active and will enforce response-gate semantics.
-
-Any client request that would touch locked content returns REFUSAL(LOCK_ACTIVE) with audit ID.
 
 ---
 
